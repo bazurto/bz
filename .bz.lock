@@ -1,0 +1,16 @@
+{
+  "deps": [
+    {
+      "server": "github.com",
+      "owner": "bazurto",
+      "repo": "groovy",
+      "version": "4.0.4"
+    },
+    {
+      "server": "github.com",
+      "owner": "bazurto",
+      "repo": "python",
+      "version": "3.11.1"
+    }
+  ]
+}
