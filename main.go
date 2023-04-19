@@ -10,7 +10,14 @@ import (
 	"github.com/bazurto/bz/lib"
 )
 
+var (
+	buildInfo string
+)
+
 func main() {
+	//fmt.Printf("buildData=%s\n", buildInfo)
+	os.Setenv("BZ_INFO", buildInfo)
+
 	lib.Debug.Printf("Look for project files: %s", lib.ConfigFileNames)
 	// current project
 	projectLocation, _ := lib.FindFileUpwards(lib.ConfigFileNames, nil)

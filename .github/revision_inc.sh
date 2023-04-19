@@ -1,7 +1,10 @@
 #!/bin/bash
 
+export SCRIPT_DIR=$(dirname $(readlink -f $0))
+export PROJECT_DIR=$(dirname $SCRIPT_DIR)
+
 main() {
-    major_minor=$(cat VERSION)
+    major_minor=$(cat $PROJECT_DIR/VERSION)
     revision=$(bump_revision $major_minor)
     echo "$major_minor.$revision"
 }
