@@ -18,7 +18,7 @@ install: bz
 test:
 	go build -v ./...
  
-release: .revision_inc.txt bz-linux-amd64 bz-linux-arm64 bz-darwin-amd64 bz-darwin-arm64 bz-windows-amd64.exe
+release: .revision.inc.txt bz-linux-amd64 bz-linux-arm64 bz-darwin-amd64 bz-darwin-arm64 bz-windows-amd64.exe
 	gh release create --generate-notes -t v$(REVISION) v$(REVISION)
 	gh release upload v$(REVISION) bz-linux-amd64
 	gh release upload v$(REVISION) bz-linux-arm64
