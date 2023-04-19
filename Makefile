@@ -50,6 +50,7 @@ clean:
 	rm -f bz-darwin-amd64
 	rm -f bz-darwin-arm64
 	rm -f bz-windows-amd64.exe
+	rm -f .revision.inc.txt
 
 
 .PHONY: clean bz install dist
