@@ -201,6 +201,8 @@ func (o *Engine) resolvedDependencyFromConfigContext(
 			return nil, fmt.Errorf("load sub dependency error: %w", err)
 		}
 
+		// TODO: INSTALL SCRIPT HERE
+
 		subRd, err := o.resolvedDependencyFromConfigContext(extractToDir, subLockedCoord, subCc, cdd2.Clone())
 		if err != nil {
 			return nil, fmt.Errorf("resole sub dependency error: : %w", err)
@@ -231,19 +233,6 @@ func (o *Engine) resolvedCoordToDir(rcoord *LockedCoord) string {
 	)
 	return dir
 }
-
-/*
-func (o *Engine) resolvedCoordToAssetFile(rcoord *LockCoord) string {
-	dir := o.resolvedCoordToDir(rcoord)
-	if err := mkdirIfNotExists(dir); err != nil {
-		Warn.Println(err)
-	}
-	return filepath.Join(
-		dir,
-		fmt.Sprintf("%s-%s.zip", rcoord.Repo, rcoord.Version.Canonical()),
-	)
-}
-*/
 
 func (o *Engine) extractDependency(rcoord *LockedCoord, file string, extractToDir string) error {
 	var err error
@@ -394,5 +383,6 @@ func (o *Engine) downloadDependencyToDir(lockCoord *LockedCoord, extractToDir st
 	if err != nil {
 		return fmt.Errorf("unable to extract dependency: %w", err)
 	}
+
 	return nil
 }

@@ -5,13 +5,12 @@ go 1.19
 require (
 	github.com/Masterminds/semver v1.5.0
 	github.com/amzn/ion-go v1.1.3
-	github.com/bazurto/bz v0.0.0-20220919165006-7fa861e6a7cc
 	github.com/google/go-github/v47 v47.0.0
 	github.com/hashicorp/hcl/v2 v2.14.0
 	github.com/stretchr/testify v1.6.1
-	github.com/vbauerster/mpb v3.4.0+incompatible
 	github.com/vbauerster/mpb/v8 v8.1.4
 	github.com/vibrantbyte/go-antpath v1.1.1
+	github.com/yuin/gopher-lua v1.1.0
 	golang.org/x/oauth2 v0.0.0-20220822191816-0ebed06d0094
 	mvdan.cc/sh v2.6.4+incompatible
 )
