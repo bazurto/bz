@@ -106,12 +106,12 @@ func (o *Engine) ContextFromConfigDir(dir string) (*ResolvedDependency, error) {
 		Debug.Print("will read from lock file")
 	}
 
-	var updateLockFile bool = false
+	var shouldUpdateLockFile bool = false
 	var lcc *LockedConfigContent
 	if readFuzzy {
 		// read from .bz, .bz.hcl, .bz.json
 		lcc, err = o.readFuzzyConfigContentFromDir(dir)
-		updateLockFile = true
+		shouldUpdateLockFile = true
 		if err != nil {
 			return nil, err
 		}
@@ -122,7 +122,7 @@ func (o *Engine) ContextFromConfigDir(dir string) (*ResolvedDependency, error) {
 			// on error ready fuzzy file
 			lcc, err = o.readFuzzyConfigContentFromDir(dir)
 			Warn.Printf("Failed reading %s, updating with %s", lockConfigFileName, fuzzyConfigFileName)
-			updateLockFile = true
+			shouldUpdateLockFile = true
 			if err != nil {
 				return nil, err
 			}
@@ -130,7 +130,7 @@ func (o *Engine) ContextFromConfigDir(dir string) (*ResolvedDependency, error) {
 	}
 
 	//
-	Debug.Printf("read config: %s", lcc)
+	Debug.Printf("read config: %v", lcc)
 	cdd := NewCircularDependencyDetector()
 	v := NewVersion("0.0.0")
 	c := LockedCoord{
@@ -147,7 +147,7 @@ func (o *Engine) ContextFromConfigDir(dir string) (*ResolvedDependency, error) {
 	}
 
 	// update lock file
-	if updateLockFile {
+	if shouldUpdateLockFile {
 		if e := o.updateLockFile(dir, resolvedDependency); e != nil {
 			Warn.Println(e)
 		}
@@ -179,6 +179,9 @@ func (o *Engine) resolvedDependencyFromConfigContext(
 		aliases = make(map[string]string)
 	}
 
+	// triggers
+	triggers := bzContent.Triggers
+
 	var subDeps []*ResolvedDependency
 	for _, subLockedCoord := range bzContent.Deps {
 		cdd2 := cdd.Clone()
@@ -188,11 +191,11 @@ func (o *Engine) resolvedDependencyFromConfigContext(
 		}
 
 		//
+		// Download Dependency if it doesn't exist
+		//
 		extractToDir := filepath.Join(o.resolvedCoordToDir(subLockedCoord), "extracted")
-		if !fileExists(extractToDir) {
-			if err := o.downloadDependencyToDir(subLockedCoord, extractToDir); err != nil {
-				return nil, err
-			}
+		if err := o.downloadAndInstallDependencyIfNotExists(subLockedCoord, extractToDir); err != nil {
+			return nil, err
 		}
 
 		//
@@ -200,8 +203,6 @@ func (o *Engine) resolvedDependencyFromConfigContext(
 		if err != nil {
 			return nil, fmt.Errorf("load sub dependency error: %w", err)
 		}
-
-		// TODO: INSTALL SCRIPT HERE
 
 		subRd, err := o.resolvedDependencyFromConfigContext(extractToDir, subLockedCoord, subCc, cdd2.Clone())
 		if err != nil {
@@ -218,6 +219,7 @@ func (o *Engine) resolvedDependencyFromConfigContext(
 	rd.BinDir = bzContent.BinDir
 	rd.Exports = exports
 	rd.Alias = aliases
+	rd.Triggers = triggers
 	rd.Sub = subDeps
 	return &rd, nil
 }
@@ -232,20 +234,6 @@ func (o *Engine) resolvedCoordToDir(rcoord *LockedCoord) string {
 		fmt.Sprintf("v%s", rcoord.Version.Canonical()),
 	)
 	return dir
-}
-
-func (o *Engine) extractDependency(rcoord *LockedCoord, file string, extractToDir string) error {
-	var err error
-	ext := filepath.Ext(file)
-	if ext == ".zip" {
-		err = Unzip(file, extractToDir)
-	} else if ext == ".tgz" {
-		err = Untgz(file, extractToDir)
-	}
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // lockedConfigContentFromDir takes a directory name `dir` and returns the json from the lock file
@@ -333,6 +321,7 @@ func (o *Engine) readFuzzyConfigContentFromDir(extractToDir string) (*LockedConf
 	lcc.BinDir = cc.BinDir
 	lcc.Alias = cc.Alias
 	lcc.Export = cc.Export
+	lcc.Triggers = cc.Triggers
 	lcc.Deps = lockedCoords
 
 	return &lcc, nil
@@ -343,6 +332,7 @@ func (o *Engine) updateLockFile(dir string, rd *ResolvedDependency) error {
 
 	cc := LockedConfigContent{}
 	cc.Alias = rd.Alias
+	cc.Triggers = rd.Triggers
 	cc.Export = rd.Exports
 	cc.BinDir = rd.BinDir
 	for _, r := range rd.Sub {
@@ -361,7 +351,15 @@ func (o *Engine) updateLockFile(dir string, rd *ResolvedDependency) error {
 	return enc.Encode(cc)
 }
 
-func (o *Engine) downloadDependencyToDir(lockCoord *LockedCoord, extractToDir string) error {
+// downloadAndInstallDependencyIfNotExists does the actual work of installing
+// the dependency.  It loops through all resolvers
+// and unzips the dependency
+func (o *Engine) downloadAndInstallDependencyIfNotExists(lockCoord *LockedCoord, extractToDir string) error {
+	// nothing to do... already installed
+	if fileExists(extractToDir) {
+		return nil
+	}
+
 	// download if it does not exists
 	var file string
 	var err error
@@ -384,5 +382,28 @@ func (o *Engine) downloadDependencyToDir(lockCoord *LockedCoord, extractToDir st
 		return fmt.Errorf("unable to extract dependency: %w", err)
 	}
 
+	lc, err := o.lockedConfigContentFromDir(extractToDir)
+	if err != nil {
+		return fmt.Errorf("load sub dependency error: %w", err)
+	}
+
+	if err := lc.Triggers.RunInstallScript(lc); err != nil {
+		return fmt.Errorf("Error running install script: %w", err)
+	}
+
+	return nil
+}
+
+func (o *Engine) extractDependency(rcoord *LockedCoord, file string, extractToDir string) error {
+	var err error
+	ext := filepath.Ext(file)
+	if ext == ".zip" {
+		err = Unzip(file, extractToDir)
+	} else if ext == ".tgz" {
+		err = Untgz(file, extractToDir)
+	}
+	if err != nil {
+		return err
+	}
 	return nil
 }

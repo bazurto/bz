@@ -14,12 +14,13 @@ import (
 )
 
 type ResolvedDependency struct {
-	Coord   LockedCoord
-	Dir     string                // directory where it is extracted
-	BinDir  string                // directory where binaries are extracted
-	Exports map[string]string     // environment vars
-	Alias   map[string]string     // aliases
-	Sub     []*ResolvedDependency // Sub Dependencies
+	Coord    LockedCoord
+	Dir      string                // directory where it is extracted
+	BinDir   string                // directory where binaries are extracted
+	Exports  map[string]string     // environment vars
+	Alias    map[string]string     // aliases
+	Triggers *Triggers             // triggers
+	Sub      []*ResolvedDependency // Sub Dependencies
 }
 
 func (ed *ResolvedDependency) BinDirOrDefault() string {
@@ -138,6 +139,9 @@ func (ed *ResolvedDependency) Resolve() ([]string, map[string]string) {
 	var subPaths []string
 	for _, sub := range ed.Sub {
 		subSubPaths, subEnv := sub.Resolve()
+
+		var err error
+		subSubPaths, subEnv = sub.Triggers.RunPreRun(sub, subSubPaths, subEnv)
 
 		// Sub Env Vars
 		for k, v := range subEnv {
