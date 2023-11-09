@@ -14,9 +14,9 @@ type Coord interface {
 }
 
 type FuzzyCoord struct {
-	Server  string
-	Owner   string
-	Repo    string
+	Server  string // github.com | local.local
+	Owner   string // rhamerica
+	Repo    string // myrepo
 	Version string // no v
 }
 

@@ -10,10 +10,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 
-	"github.com/Masterminds/semver"
 	"github.com/google/go-github/v47/github"
 
 	"golang.org/x/oauth2"
@@ -57,7 +55,7 @@ func (o *GithubResolver) ResolveCoord(c *FuzzyCoord) (*LockedCoord, error) {
 		Debug.Printf(" | call client.Repositories.GetReleaseByTag (%s, %s, %s)", c.Owner, c.Repo, fmt.Sprintf("v%s", c.Version))
 		release, r, err = client.Repositories.GetReleaseByTag(ctx, c.Owner, c.Repo, fmt.Sprintf("v%s", c.Version))
 		if err != nil && r.StatusCode == http.StatusNotFound {
-			release, err = ghFindReleaseByPattern(client, c.Owner, c.Repo, fmt.Sprintf("v%s", c.Version))
+			release, err = o.ghFindReleaseByPattern(client, c.Owner, c.Repo, fmt.Sprintf("v%s", c.Version))
 		}
 	}
 	if err != nil {
@@ -156,7 +154,7 @@ func (o *GithubResolver) getAssetFromRelease(c *LockedCoord, release *github.Rep
 	return asset, nil
 }
 
-func ghFindReleaseByPattern(client *github.Client, owner, repo, patternStr string) (*github.RepositoryRelease, error) {
+func (o *GithubResolver) ghFindReleaseByPattern(client *github.Client, owner, repo, patternStr string) (*github.RepositoryRelease, error) {
 	Debug.Printf("ghFindReleaseByPattern(%s, %s, %s)", owner, repo, patternStr)
 	// if not found search for it
 	perPage := 30
@@ -199,56 +197,6 @@ func ghFindReleaseByPattern(client *github.Client, owner, repo, patternStr strin
 		return latest, nil
 	}
 	return nil, fmt.Errorf("dependency %s/%s-%s not found", owner, repo, patternStr)
-}
-
-func possibleAssetNames(c *LockedCoord) []BzAsset {
-	osArch := fmt.Sprintf("%s-%s", runtime.GOOS, runtime.GOARCH)
-
-	extensions := []string{"zip", "tgz", "tar.gz"} // possible extensions
-
-	var res []BzAsset
-	for _, ext := range extensions {
-		res = append(res,
-			BzAsset{Canonical: fmt.Sprintf("%s-%s-v%s", c.Repo, osArch, c.Version.Canonical()), Ext: ext}, // openjdk-linux-amd64-v1.2.3.zip
-			BzAsset{Canonical: fmt.Sprintf("%s-v%s", c.Repo, c.Version.Canonical()), Ext: ext},            // openjdk-v1.2.3.zip
-			BzAsset{Canonical: c.Repo, Ext: ext},                                                          // openjdk.zip
-		)
-	}
-	return res
-}
-
-type BzAsset struct {
-	Ext       string // zip
-	Canonical string // project-name-linux-amd64-v1.2.3
-}
-
-func (a *BzAsset) NameWithExt() string {
-	return fmt.Sprintf("%s.%s", a.Canonical, a.Ext)
-}
-
-type BzAssetArrHelper []BzAsset
-
-func (o BzAssetArrHelper) CollectNames() []string {
-	var names []string
-	for _, i := range o {
-		names = append(names, i.NameWithExt())
-	}
-	return names
-}
-
-func versionCompare(a, b string) int {
-	v1, err := semver.NewVersion(a)
-	if err != nil {
-		Warn.Printf("invalid semver `%s`", a)
-		return 0
-	}
-	v2, err := semver.NewVersion(b)
-	if err != nil {
-		Warn.Printf("invalid semver `%s`", b)
-		return 0
-	}
-
-	return v1.Compare(v2)
 }
 
 func newGithubClient(server string) *github.Client {

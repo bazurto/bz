@@ -5,6 +5,7 @@ package lib
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -30,7 +31,22 @@ func (ed *ResolvedDependency) BinDirOrDefault() string {
 	return ed.BinDir
 }
 
+func (ed *ResolvedDependency) ExecuteStringWithIO(str string, stdout io.Writer, stderr io.Writer, stdin io.Reader) int {
+	_, env := ed.Resolve()
+	cdd := NewCircularDependencyDetector()
+	expandedArgs, err := ed.expandAlias(str, env, cdd)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
+	}
+	return ed.ExecuteWithIO(expandedArgs, stdout, stderr, stdin)
+}
+
 func (ed *ResolvedDependency) Execute(args []string) int {
+	return ed.ExecuteWithIO(args, os.Stdout, os.Stdin, os.Stderr)
+}
+
+func (ed *ResolvedDependency) ExecuteWithIO(args []string, stdout io.Writer, stderr io.Writer, stdin io.Reader) int {
 	// empty
 	if len(args) < 1 {
 		return 0
@@ -87,7 +103,8 @@ func (ed *ResolvedDependency) ExpandCommand(args []string) ([]string, error) {
 }
 
 func (ed *ResolvedDependency) expandCommand(
-	args []string, env map[string]string,
+	args []string,
+	env map[string]string,
 	cdd *CircularDependencyDetector,
 ) ([]string, error) {
 	if args == nil {
@@ -100,33 +117,43 @@ func (ed *ResolvedDependency) expandCommand(
 	Debug.Printf("expandCommand(%s)", strings.Join(args, " "))
 	prog := args[0]
 
-	Debug.Printf("look up alias %s in map(%s)", prog, mapJoin(ed.Alias, ":", ";"))
-	if str, ok := ed.Alias[prog]; ok {
-		if err := cdd.Push(prog); err != nil {
-			return nil, fmt.Errorf("expandCommand(): %w", err)
-		}
-		expanded, err := shell.Fields(str, func(k string) string {
-			if v, ok := env[k]; ok {
-				return v
-			}
-			return fmt.Sprintf("$%s", k)
-		})
+	expanded, err := ed.expandAlias(prog, env, cdd)
+	if err != nil {
+		return args, err
+	}
+	expanded = append(expanded, args[1:]...)
 
-		if err != nil {
-			return args, fmt.Errorf("ExtractedDependency.ExpandCommand(): %w", err)
-		}
-		args = append(expanded, args[1:]...)
+	return expanded, nil
+}
+
+func (ed *ResolvedDependency) expandAlias(
+	arg0 string,
+	env map[string]string,
+	cdd *CircularDependencyDetector,
+) ([]string, error) {
+	if err := cdd.Push(arg0); err != nil {
+		return nil, fmt.Errorf("expandAlias(): %w", err)
 	}
 
-	var err error
+	expanded, err := shell.Fields(arg0, func(k string) string {
+		if v, ok := env[k]; ok {
+			return v
+		}
+		return fmt.Sprintf("$%s", k)
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("ExtractedDependency.ExpandCommand(): %w", err)
+	}
+
 	for _, sub := range ed.Sub {
-		args, err = sub.expandCommand(args, env, cdd)
+		expanded, err = sub.expandAlias(expanded[0], env, cdd)
 		if err != nil {
-			return args, err
+			return nil, err
 		}
 	}
 
-	return args, nil
+	return expanded, nil
 }
 
 // Resolve returns a slice with bin dirs to be prepended to PATH os var
@@ -140,7 +167,6 @@ func (ed *ResolvedDependency) Resolve() ([]string, map[string]string) {
 	for _, sub := range ed.Sub {
 		subSubPaths, subEnv := sub.Resolve()
 
-		var err error
 		subSubPaths, subEnv = sub.Triggers.RunPreRun(sub, subSubPaths, subEnv)
 
 		// Sub Env Vars

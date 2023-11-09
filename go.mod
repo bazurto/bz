@@ -11,7 +11,6 @@ require (
 	github.com/stretchr/testify v1.8.1
 	github.com/vbauerster/mpb/v8 v8.1.4
 	github.com/vibrantbyte/go-antpath v1.1.1
-	github.com/yuin/gopher-lua v1.1.0
 	golang.org/x/oauth2 v0.0.0-20220822191816-0ebed06d0094
 	mvdan.cc/sh v2.6.4+incompatible
 )

@@ -4,7 +4,10 @@
 package lib
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/hashicorp/hcl/v2"
@@ -72,25 +75,44 @@ func (o *Triggers) RunInstallScript(lcc *LockedConfigContent) error {
 		return nil
 	}
 
-	if err := RunScriptCode(*o.InstallScript); err != nil {
+	if exports, err := RunScriptCode(*o.InstallScript); err != nil {
 		return err
+	} else {
+		fmt.Println(exports)
 	}
 
 	return nil
 }
 
+// RunPreRun modifies the context.  It modifies the path and env variables and returns them
 func (o *Triggers) RunPreRun(d *ResolvedDependency, path []string, env map[string]string) ([]string, map[string]string) {
-	if o == nil {
-		return path, env
+	preRunCtx := PreRunCtx{Env: env, Path: path}
+	if o != nil && o.PreRunScript != nil && *o.PreRunScript != "" {
+		b, err := json.Marshal(preRunCtx)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error marshaling jsons tring on PreRunScript(%s):%s\n", *o.PreRunScript, err)
+			os.Exit(1)
+		}
+		stdout := bytes.NewBuffer(nil)
+		stderr := bytes.NewBuffer(nil)
+		stdin := bytes.NewBuffer(b)
+		errno := d.ExecuteStringWithIO(*o.PreRunScript, stdout, stderr, stdin)
+		if errno != 0 {
+			fmt.Fprintf(os.Stderr, "Error running PreRunScript(%s): %s\n", *o.PreRunScript, stderr.String())
+			os.Exit(1)
+		}
+		jsonStr := stdout.String()
+
+		err = jsonDecode(jsonStr, &preRunCtx)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error running unmarshaling response from PreRunScript(%s):%s:\n%s\n", *o.PreRunScript, err, stdout.String())
+			os.Exit(1)
+		}
 	}
+	return preRunCtx.Path, preRunCtx.Env
+}
 
-	if o.PreRunScript == nil {
-		return path, env
-	}
-
-	exports, _ := RunScriptCode(*o.PreRunScript, path, env)
-	//exports["binDir"]
-	//exports["env"]
-
-	return path, env
+type PreRunCtx struct {
+	Path []string          `json:"path"`
+	Env  map[string]string `json:"env"`
 }

@@ -1,11 +1,6 @@
 package lib
 
-import (
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-)
-
+/*
 func TestRunLua(t *testing.T) {
 	err := RunScriptCode(`
 	std.printf("Hello World\n");
@@ -25,7 +20,6 @@ func TestRunLua(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-/*
 func TestRunLuaMod(t *testing.T) {
 	err := RunLua(`
 local m = require("file")

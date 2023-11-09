@@ -11,8 +11,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -204,7 +204,7 @@ func Zip(srcDir string, writer io.Writer, include []string) error {
 // with the name and the open file
 func RecurseDir(absDir string, cb func(absName string, file *os.File) error) error {
 	//
-	diSlice, err := ioutil.ReadDir(absDir)
+	diSlice, err := os.ReadDir(absDir)
 	if err != nil {
 		return fmt.Errorf("RecurseDir(): %w", err)
 	}
@@ -372,7 +372,7 @@ func isIonFile(f string) bool {
 }
 
 func jsonLoad(f string, cfg any) error {
-	b, err := ioutil.ReadFile(f)
+	b, err := os.ReadFile(f)
 	if err != nil {
 		return fmt.Errorf("unable to load JSON|ION file %s: %w", f, err)
 	}
@@ -380,7 +380,7 @@ func jsonLoad(f string, cfg any) error {
 }
 
 func ionLoad(f string, cfg any) error {
-	b, err := ioutil.ReadFile(f)
+	b, err := os.ReadFile(f)
 	if err != nil {
 		return fmt.Errorf("unable to load JSON|ION file %s: %w", f, err)
 	}
@@ -388,7 +388,7 @@ func ionLoad(f string, cfg any) error {
 }
 
 func hclLoad(f string, cfg any) error {
-	b, err := ioutil.ReadFile(f)
+	b, err := os.ReadFile(f)
 	if err != nil {
 		return fmt.Errorf("unable to load HCL file %s: %w", f, err)
 	}
@@ -503,4 +503,70 @@ func toPropKey(k string) string {
 	k = strings.ReplaceAll(k, "-", ".")
 	k = strings.ReplaceAll(k, "/", ".")
 	return k
+}
+
+func execCommand(ed *ResolvedDependency, args []string) int {
+	// env vars
+	newPath, newEnv := ed.Resolve()
+
+	// Set the path
+	path := os.Getenv("PATH") // get original path
+	pathParts := strings.Split(path, string([]rune{os.PathListSeparator}))
+	newPath = append(newPath, pathParts...)
+	newEnv["PATH"] = strings.Join(newPath, string([]rune{os.PathListSeparator}))
+
+	// Args
+	args, err := ed.ExpandCommand(args)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
+	}
+
+	//executeCommand(args, newEnv)
+	//debug.Printf("env: \n%s\n", mapJoin(env, "=", "\n"))
+	Debug.Printf("command: %s", strings.Join(args, " "))
+
+	// Set environment
+	for k, v := range newEnv {
+		os.Setenv(k, v)
+	}
+
+	prog := args[0]
+	progArgs := args[1:]
+	cmd := exec.Command(prog, progArgs...)
+	cmd.Stdout = os.Stdout
+	cmd.Stdin = os.Stdin
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
+	if err != nil {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			return exitError.ExitCode()
+		} else {
+			fmt.Fprintf(os.Stderr, "`%s`: %s\n", strings.Join(args, " "), err)
+			return cmd.ProcessState.ExitCode()
+		}
+	}
+	return 0
+}
+
+// jsonDecode decodes json and returns pointer of R type passed
+// e.g.1:
+//
+//	myTypePtr, err := jsonDecode(`{"fld1": "Val1"}`, MyType{})
+//
+// e.g.2:
+//
+//	mapPtr, err := jsonDecode(`{"fld1": "Val1"}`, make(map[string]string))
+//	m := *mapPtr
+//	fmt.Println(m["fld1"])
+func jsonDecode[T string | []byte](b T, v any) error {
+	switch tmp := any(b).(type) {
+	case string:
+		err := json.Unmarshal([]byte(tmp), &v)
+		return err
+	case []byte:
+		err := json.Unmarshal(tmp, &v)
+		return err
+	}
+	return fmt.Errorf("Unknown type parameter")
 }

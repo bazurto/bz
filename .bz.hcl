@@ -6,8 +6,6 @@ deps = [
 ]
 
 triggers = {
-  preRun = """
-  """
-  install = """
-  """
+  preRun = "$DIR/prerun.py"
+  install = "$DIR/install.py"
 }

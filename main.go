@@ -34,8 +34,10 @@ func main() {
 
 	// Resolvers
 	ghr := lib.NewGithubResolver()
+	local := lib.NewLocalDevResolver()
 	engine := lib.NewEngine()
 	engine.AddResolver(ghr)
+	engine.AddResolver(local)
 
 	// Get Context From Config
 	rctx, err := engine.ContextFromConfigDir(projectLocation.Root) // does resolving and downloading
