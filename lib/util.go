@@ -562,6 +562,7 @@ func execCommand(ed *ResolvedDependency, args []string) int {
 func jsonDecode[T string | []byte](b T, v any) error {
 	switch tmp := any(b).(type) {
 	case string:
+		//try(json.Unmarshal([]byte(tmp), &v))
 		err := json.Unmarshal([]byte(tmp), &v)
 		return err
 	case []byte:

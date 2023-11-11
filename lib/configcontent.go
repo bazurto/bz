@@ -18,7 +18,7 @@ type LockedConfigContent struct {
 	Deps     []*LockedCoord    `ion:"deps" json:"deps,omitempty"`
 	Export   map[string]string `ion:"env" json:"env,omitempty"`
 	Alias    map[string]string `ion:"alias" json:"alias,omitempty"`
-	Triggers *Triggers         `ion:"triggers" json:"triggers,omitempty"`
+	Triggers Triggers          `ion:"triggers" json:"triggers,omitempty"`
 }
 
 type FuzzyConfigContent struct {
@@ -26,13 +26,14 @@ type FuzzyConfigContent struct {
 	Deps     []string          `ion:"deps" json:"deps" hcl:"deps,optional"`
 	Export   map[string]string `ion:"env" json:"env" hcl:"env,optional"`
 	Alias    map[string]string `ion:"alias" json:"alias" hcl:"alias,optional"`
-	Triggers *Triggers         `ion:"triggers" json:"triggers,omitempty" hcl:"triggers,optional"`
+	Triggers *Triggers         `ion:"triggers" json:"triggers,omitempty" hcl:"block"`
 	Remain   hcl.Body          `hcl:",remain"`
 }
 
 type Triggers struct {
-	InstallScript *string `ion:"installScript" json:"installScript,omitempty" hcl:"installScript,optional"`
-	PreRunScript  *string `ion:"preRunScript" json:"preRunScript,omitempty" hcl:"preRunScript,optional"`
+	InstallScript string   `ion:"installScript" json:"installScript,omitempty" hcl:"installScript,optional"`
+	PreRunScript  string   `ion:"preRunScript" json:"preRunScript,omitempty" hcl:"preRunScript,optional"`
+	Remain        hcl.Body `hcl:",remain"`
 }
 
 func LockedConfigContentFromFile(f string) (*LockedConfigContent, error) {
@@ -71,11 +72,11 @@ func (o *Triggers) RunInstallScript(lcc *LockedConfigContent) error {
 		return nil
 	}
 
-	if o.InstallScript == nil {
+	if o.InstallScript == "" {
 		return nil
 	}
 
-	if exports, err := RunScriptCode(*o.InstallScript); err != nil {
+	if exports, err := RunScriptCode(o.InstallScript); err != nil {
 		return err
 	} else {
 		fmt.Println(exports)
@@ -87,25 +88,25 @@ func (o *Triggers) RunInstallScript(lcc *LockedConfigContent) error {
 // RunPreRun modifies the context.  It modifies the path and env variables and returns them
 func (o *Triggers) RunPreRun(d *ResolvedDependency, path []string, env map[string]string) ([]string, map[string]string) {
 	preRunCtx := PreRunCtx{Env: env, Path: path}
-	if o != nil && o.PreRunScript != nil && *o.PreRunScript != "" {
+	if o != nil && o.PreRunScript != "" {
 		b, err := json.Marshal(preRunCtx)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error marshaling jsons tring on PreRunScript(%s):%s\n", *o.PreRunScript, err)
+			fmt.Fprintf(os.Stderr, "Error marshaling jsons tring on PreRunScript(%s):%s\n", o.PreRunScript, err)
 			os.Exit(1)
 		}
 		stdout := bytes.NewBuffer(nil)
 		stderr := bytes.NewBuffer(nil)
 		stdin := bytes.NewBuffer(b)
-		errno := d.ExecuteStringWithIO(*o.PreRunScript, stdout, stderr, stdin)
+		errno := d.ExecuteStringWithIO(o.PreRunScript, stdout, stderr, stdin)
 		if errno != 0 {
-			fmt.Fprintf(os.Stderr, "Error running PreRunScript(%s): %s\n", *o.PreRunScript, stderr.String())
+			fmt.Fprintf(os.Stderr, "Error running PreRunScript(%s): %s\n", o.PreRunScript, stderr.String())
 			os.Exit(1)
 		}
 		jsonStr := stdout.String()
 
 		err = jsonDecode(jsonStr, &preRunCtx)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error running unmarshaling response from PreRunScript(%s):%s:\n%s\n", *o.PreRunScript, err, stdout.String())
+			fmt.Fprintf(os.Stderr, "Error running unmarshaling response from PreRunScript(%s):%s:\n%s\n", o.PreRunScript, err, stdout.String())
 			os.Exit(1)
 		}
 	}

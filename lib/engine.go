@@ -321,7 +321,9 @@ func (o *Engine) readFuzzyConfigContentFromDir(extractToDir string) (*LockedConf
 	lcc.BinDir = cc.BinDir
 	lcc.Alias = cc.Alias
 	lcc.Export = cc.Export
-	lcc.Triggers = cc.Triggers
+	if cc.Triggers != nil {
+		lcc.Triggers = *cc.Triggers
+	}
 	lcc.Deps = lockedCoords
 
 	return &lcc, nil

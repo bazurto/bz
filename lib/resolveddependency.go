@@ -20,7 +20,7 @@ type ResolvedDependency struct {
 	BinDir   string                // directory where binaries are extracted
 	Exports  map[string]string     // environment vars
 	Alias    map[string]string     // aliases
-	Triggers *Triggers             // triggers
+	Triggers Triggers              // triggers
 	Sub      []*ResolvedDependency // Sub Dependencies
 }
 

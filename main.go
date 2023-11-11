@@ -14,6 +14,9 @@ var (
 	buildInfo string
 )
 
+func reterr() (string, error) {
+	return "", fmt.Errorf("error")
+}
 func main() {
 	//fmt.Printf("buildData=%s\n", buildInfo)
 	os.Setenv("BZ_INFO", buildInfo)

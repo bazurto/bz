@@ -33,7 +33,7 @@ func (o *LocalDevResolver) ResolveCoord(c *FuzzyCoord) (*LockedCoord, error) {
 		Server:  c.Server,
 		Owner:   c.Owner,
 		Repo:    c.Repo,
-		Version: version,
+		Version: NewVersion(c.Version),
 	}, nil
 }
 
