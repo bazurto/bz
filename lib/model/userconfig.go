@@ -1,10 +1,12 @@
 // SPDX-FileCopyrightText: 2023 RH America LLC <info@rhamerica.com>
 // SPDX-License-Identifier: GPL-3.0-only
 
-package lib
+package model
 
 import (
 	"strings"
+
+	"github.com/bazurto/bz/lib/utils"
 )
 
 /*
@@ -38,9 +40,9 @@ type UserConfigIon struct {
 func NewUserConfigFromFile(f string) (*UserConfig, error) {
 	var err error
 	cfg := UserConfig{}
-	if isIonFile(f) {
+	if utils.IsIonFile(f) {
 		uci := UserConfigIon{}
-		err = ionLoad(f, &uci)
+		err = utils.IonLoad(f, &uci)
 		if err == nil {
 			for serverName, attr := range uci.Servers {
 				attr.Name = serverName
@@ -48,7 +50,7 @@ func NewUserConfigFromFile(f string) (*UserConfig, error) {
 			}
 		}
 	} else {
-		err = hclLoad(f, &cfg)
+		err = utils.HclLoad(f, &cfg)
 	}
 	return &cfg, err
 }

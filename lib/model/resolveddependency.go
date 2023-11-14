@@ -1,16 +1,14 @@
 // SPDX-FileCopyrightText: 2023 RH America LLC <info@rhamerica.com>
 // SPDX-License-Identifier: GPL-3.0-only
 
-package lib
+package model
 
 import (
 	"fmt"
-	"io"
-	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 
+	"github.com/bazurto/bz/lib/model"
+	"github.com/bazurto/bz/lib/utils"
 	"mvdan.cc/sh/shell"
 )
 
@@ -31,81 +29,29 @@ func (ed *ResolvedDependency) BinDirOrDefault() string {
 	return ed.BinDir
 }
 
-func (ed *ResolvedDependency) ExecuteStringWithIO(str string, stdout io.Writer, stderr io.Writer, stdin io.Reader) int {
-	_, env := ed.Resolve()
-	cdd := NewCircularDependencyDetector()
-	expandedArgs, err := ed.expandAlias(str, env, cdd)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
-	}
-	return ed.ExecuteWithIO(expandedArgs, stdout, stderr, stdin)
-}
-
-func (ed *ResolvedDependency) Execute(args []string) int {
-	return ed.ExecuteWithIO(args, os.Stdout, os.Stdin, os.Stderr)
-}
-
-func (ed *ResolvedDependency) ExecuteWithIO(args []string, stdout io.Writer, stderr io.Writer, stdin io.Reader) int {
-	// empty
-	if len(args) < 1 {
-		return 0
-	}
-
-	// env vars
-	newPath, newEnv := ed.Resolve()
-
-	//
-	path := os.Getenv("PATH")
-	pathParts := strings.Split(path, string([]rune{os.PathListSeparator}))
-	newPath = append(newPath, pathParts...)
-	os.Setenv("PATH", strings.Join(newPath, string([]rune{os.PathListSeparator})))
-
-	// Args
-	args, err := ed.ExpandCommand(args)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
-	}
-
-	//executeCommand(args, newEnv)
-	//debug.Printf("env: \n%s\n", mapJoin(env, "=", "\n"))
-	Debug.Printf("command: %s", strings.Join(args, " "))
-	// SetEnv
-	for k, v := range newEnv {
-		os.Setenv(k, v)
-	}
-
-	prog := args[0]
-	progArgs := args[1:]
-	cmd := exec.Command(prog, progArgs...)
-	cmd.Stdout = os.Stdout
-	cmd.Stdin = os.Stdin
-	cmd.Stderr = os.Stderr
-	err = cmd.Run()
-	if err != nil {
-		if exitError, ok := err.(*exec.ExitError); ok {
-			return exitError.ExitCode()
-		} else {
-			fmt.Fprintf(os.Stderr, "`%s`: %s\n", strings.Join(args, " "), err)
-			return cmd.ProcessState.ExitCode()
-		}
-	}
-	return 0
-}
+// func (ed *ResolvedDependency) ExecuteStringWithIO(str string, stdout io.Writer, stderr io.Writer, stdin io.Reader) int {
+// 	_, env := ed.Resolve()
+// 	//cdd := NewCircularDependencyDetector()
+// 	expandedArgs, err := ed.expandAlias(str, env /*, cdd*/)
+// 	if err != nil {
+// 		fmt.Fprintf(os.Stderr, "%s\n", err)
+// 		os.Exit(1)
+// 	}
+// 	return ed.ExecuteWithIO(expandedArgs, stdout, stderr, stdin)
+// }
 
 // ExpandCommand expands command by resolving alias if no alias
 // is found it returns the prog variable unmodified in a slice
 func (ed *ResolvedDependency) ExpandCommand(args []string) ([]string, error) {
 	_, env := ed.Resolve()
-	cdd := NewCircularDependencyDetector()
-	return ed.expandCommand(args, env, cdd)
+	//cdd := NewCircularDependencyDetector()
+	return ed.expandCommand(args, env /*, cdd*/)
 }
 
 func (ed *ResolvedDependency) expandCommand(
 	args []string,
 	env map[string]string,
-	cdd *CircularDependencyDetector,
+	//cdd *CircularDependencyDetector,
 ) ([]string, error) {
 	if args == nil {
 		return nil, nil
@@ -114,10 +60,10 @@ func (ed *ResolvedDependency) expandCommand(
 		return args, nil
 	}
 
-	Debug.Printf("expandCommand(%s)", strings.Join(args, " "))
+	//Debug.Printf("expandCommand(%s)", strings.Join(args, " "))
 	prog := args[0]
 
-	expanded, err := ed.expandAlias(prog, env, cdd)
+	expanded, err := ed.expandAlias(prog, env /*, cdd*/)
 	if err != nil {
 		return args, err
 	}
@@ -129,84 +75,82 @@ func (ed *ResolvedDependency) expandCommand(
 func (ed *ResolvedDependency) expandAlias(
 	arg0 string,
 	env map[string]string,
-	cdd *CircularDependencyDetector,
+	//cdd *CircularDependencyDetector,
 ) ([]string, error) {
-	if err := cdd.Push(arg0); err != nil {
-		return nil, fmt.Errorf("expandAlias(): %w", err)
-	}
+	//if err := cdd.Push(arg0); err != nil {
+	//	return nil, fmt.Errorf("expandAlias(): %w", err)
+	//}
 
-	expanded, err := shell.Fields(arg0, func(k string) string {
-		if v, ok := env[k]; ok {
-			return v
+	var result []string
+
+	if str, ok := ed.Alias[arg0]; ok {
+		expanded, err := shell.Fields(str, func(k string) string {
+			if v, ok := env[k]; ok {
+				return v
+			}
+			return fmt.Sprintf("$%s", k)
+		})
+		if err != nil {
+			return nil, fmt.Errorf("ExtractedDependency.ExpandCommand(): %w", err)
 		}
-		return fmt.Sprintf("$%s", k)
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("ExtractedDependency.ExpandCommand(): %w", err)
+		result = expanded
+	} else {
+		result = append(result, arg0)
 	}
 
 	for _, sub := range ed.Sub {
-		expanded, err = sub.expandAlias(expanded[0], env, cdd)
+		expanded, err := sub.expandAlias(result[0], env /*, cdd*/)
 		if err != nil {
 			return nil, err
 		}
+		result = append(expanded, result[1:]...)
 	}
 
-	return expanded, nil
+	return result, nil
 }
 
 // Resolve returns a slice with bin dirs to be prepended to PATH os var
 // and a map with all environment variables to be added.  It resolves all
 // of these values recursevily
-func (ed *ResolvedDependency) Resolve() ([]string, map[string]string) {
-	env := make(map[string]string)
+func (ed *ResolvedDependency) Resolve(ctx *model.ExecContext) {
+	//env := make(map[string]string)
 
 	// Sub
-	var subPaths []string
+	//var subPaths []string
 	for _, sub := range ed.Sub {
-		subSubPaths, subEnv := sub.Resolve()
+		//subSubPaths, subEnv := sub.Resolve(ctx)
+		sub.Resolve(ctx)
 
-		subSubPaths, subEnv = sub.Triggers.RunPreRun(sub, subSubPaths, subEnv)
-
-		// Sub Env Vars
-		for k, v := range subEnv {
-			env[k] = parseShellTpl(v, env)
-		}
-		subPaths = append(subPaths, subSubPaths...)
+		// // Sub Env Vars
+		// for k, v := range subEnv {
+		// 	env[k] = parseShellTpl(v, env)
+		// }
+		// subPaths = append(subPaths, subSubPaths...)
 	}
 
 	// Local
-	env = mapMerge(env, ed.resolveLocalEnvVars(env))
+	//env = utils.MapMerge(env, ed.resolveLocalEnvVars(env))
+	ed.resolveLocalEnvVars(ctx)
 
 	// binDir
 	binDir := ed.BinDirOrDefault()
 
-	path := append(
-		[]string{parseShellTpl(binDir, env)},
-		subPaths...,
-	)
+	ctx.Path = append([]string{parseShellTpl(binDir, ctx)}, ctx.Path...)
 
-	//Debug.Printf("@@@%s", ed.Coord.String())
-	for k, v := range env {
-		Debug.Printf("@@@\t%s=%s", k, v)
-	}
-	return path, env
+	//fmt.Printf("#%s: %s\n", &ed.Coord, ed.Triggers.PreRunScript)
+	return ed.Triggers.RunPreRun(ctx) // modify env by script
 }
 
 // resolveLocalEnvVars returns map with implicit variables and exported ones
 // for only this extracted dependecy
-func (ed *ResolvedDependency) resolveLocalEnvVars(subEnv map[string]string) map[string]string {
+func (ed *ResolvedDependency) resolveLocalEnvVars(ctx *model.ExecContextsg) {
 	env := make(map[string]string)
-
 	env["DIR"] = ed.Dir // DIR
-	env["CURDIR"] = getCurrentDir()
-	env = mapMerge(subEnv, env)
-
+	env["CURDIR"] = utils.GetCurrentDir()
+	env = utils.MapMerge(ctx.Env, env)
 	//
 	for k, v := range ed.Exports {
 		env[k] = parseShellTpl(v, env)
-		//Debug.Printf(" --- %s=%s=%s", k, v, env[k])
 	}
 
 	// do BINDIR after Exports
@@ -214,9 +158,11 @@ func (ed *ResolvedDependency) resolveLocalEnvVars(subEnv map[string]string) map[
 
 	// all of github.com/owner/repo-v1.2.3 =>  GITHUB_COM_OWNER_REPO_V1.2.3 = /path/to/dir/extracted
 	implicitVars := calculateImplicitDirEnvironmentVars(*ed, env)
-	env = mapMerge(env, implicitVars)
+	env = utils.MapMerge(env, implicitVars)
 
-	return env
+	for k, v := range env {
+		ctx.Env[k] = v
+	}
 }
 
 func calculateImplicitDirEnvironmentVars(ea ResolvedDependency, env map[string]string) map[string]string {
@@ -225,17 +171,17 @@ func calculateImplicitDirEnvironmentVars(ea ResolvedDependency, env map[string]s
 
 	nameSpaceVarPrefixes := []string{
 		// GITHUB_COM_BAZURTO_GROOVY_V1.2.3
-		toEnvKey(fmt.Sprintf("%s_%s_%s_%s", c.Server, c.Owner, c.Repo, c.Version.Canonical())),
+		utils.ToEnvKey(fmt.Sprintf("%s_%s_%s_%s", c.Server, c.Owner, c.Repo, c.Version.Canonical())),
 		// GITHUB_COM_BAZURTO_GROOVY
-		toEnvKey(fmt.Sprintf("%s_%s_%s", c.Server, c.Owner, c.Repo)),
+		utils.ToEnvKey(fmt.Sprintf("%s_%s_%s", c.Server, c.Owner, c.Repo)),
 		// BAZURTO_GROOVY_V1.2.3
-		toEnvKey(fmt.Sprintf("%s_%s_%s", c.Owner, c.Repo, c.Version.Canonical())),
+		utils.ToEnvKey(fmt.Sprintf("%s_%s_%s", c.Owner, c.Repo, c.Version.Canonical())),
 		// BAZURTO_GROOVY
-		toEnvKey(fmt.Sprintf("%s_%s", c.Owner, c.Repo)),
+		utils.ToEnvKey(fmt.Sprintf("%s_%s", c.Owner, c.Repo)),
 		// GROOVY_V1.2.3
-		toEnvKey(fmt.Sprintf("%s_%s", c.Repo, c.Version.Canonical())),
+		utils.ToEnvKey(fmt.Sprintf("%s_%s", c.Repo, c.Version.Canonical())),
 		// GROOVY
-		toEnvKey(c.Repo),
+		utils.ToEnvKey(c.Repo),
 	}
 
 	// github.com/bazurto/groovy-v1.2.3 =>  {
@@ -270,9 +216,9 @@ func parseShellTpl(tpl string, env map[string]string) string {
 	}
 
 	//
-	parsedStr, err := shell.Expand(tpl, f)
-	if err != nil {
-		Warn.Printf("WARNING: %s\n", err)
-	}
+	parsedStr, _ := shell.Expand(tpl, f)
+	// if err != nil {
+	// 	Warn.Printf("WARNING: %s\n", err)
+	// }
 	return parsedStr
 }

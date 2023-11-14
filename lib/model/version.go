@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 RH America LLC <info@rhamerica.com>
 // SPDX-License-Identifier: GPL-3.0-only
 
-package lib
+package model
 
 import (
 	"bytes"

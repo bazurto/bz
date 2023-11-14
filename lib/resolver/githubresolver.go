@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 RH America LLC <info@rhamerica.com>
 // SPDX-License-Identifier: GPL-3.0-only
 
-package lib
+package resolver
 
 import (
 	"context"
@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/bazurto/bz/lib/model"
+	"github.com/bazurto/bz/lib/utils"
 	"github.com/google/go-github/v47/github"
 
 	"golang.org/x/oauth2"
@@ -22,22 +24,23 @@ var (
 )
 
 type GithubResolver struct {
+	appCtx *model.AppContext
 }
 
-func NewGithubResolver() *GithubResolver {
-	return &GithubResolver{}
+func NewGithubResolver(appCtx *model.AppContext) *GithubResolver {
+	return &GithubResolver{appCtx}
 }
 
 func (o *GithubResolver) String() string {
 	return "GithubResolver{}"
 }
 
-func (o *GithubResolver) ResolveCoord(c *FuzzyCoord) (*LockedCoord, error) {
+func (o *GithubResolver) ResolveCoord(c *model.FuzzyCoord) (*model.LockedCoord, error) {
 	Debug.Printf("Start GithubResolver.ResolveCoord(%s)", c)
 
 	//
 	ctx := context.Background()
-	client := newGithubClient(c.Server)
+	client := o.newGithubClient(c.Server)
 
 	//
 	// query github
@@ -63,12 +66,12 @@ func (o *GithubResolver) ResolveCoord(c *FuzzyCoord) (*LockedCoord, error) {
 	}
 
 	//
-	version := NewVersion(release.GetName())
+	version := model.NewVersion(release.GetName())
 	if err != nil {
 		return nil, fmt.Errorf("GithubResolver.ResolveCoord() NewVersion: %w", err)
 	}
 
-	return &LockedCoord{
+	return &model.LockedCoord{
 		Server:  c.Server,
 		Owner:   c.Owner,
 		Repo:    c.Repo,
@@ -76,11 +79,11 @@ func (o *GithubResolver) ResolveCoord(c *FuzzyCoord) (*LockedCoord, error) {
 	}, nil
 }
 
-func (o *GithubResolver) DownloadResolvedCoord(rc *LockedCoord, dir string) (string, error) {
+func (o *GithubResolver) DownloadResolvedCoord(rc *model.LockedCoord, dir string) (string, error) {
 	Debug.Printf("Start DownloadResolvedCoord(%v, %s)", rc, dir)
 	//
 	ctx := context.Background()
-	client := newGithubClient(rc.Server)
+	client := o.newGithubClient(rc.Server)
 
 	//
 	githubVersion := fmt.Sprintf("v%s", rc.Version.Canonical())
@@ -96,7 +99,7 @@ func (o *GithubResolver) DownloadResolvedCoord(rc *LockedCoord, dir string) (str
 	}
 
 	// download file
-	if err := mkdirIfNotExists(dir); err != nil {
+	if err := utils.MkdirIfNotExists(dir); err != nil {
 		return "", err
 	} else {
 		Debug.Printf("dir already exists: %s", dir)
@@ -131,7 +134,7 @@ func (o *GithubResolver) DownloadResolvedCoord(rc *LockedCoord, dir string) (str
 	return file, nil
 }
 
-func (o *GithubResolver) getAssetFromRelease(c *LockedCoord, release *github.RepositoryRelease) (*github.ReleaseAsset, error) {
+func (o *GithubResolver) getAssetFromRelease(c *model.LockedCoord, release *github.RepositoryRelease) (*github.ReleaseAsset, error) {
 	var asset *github.ReleaseAsset
 	expectedNames := possibleAssetNames(c)
 	for _, expected := range expectedNames {
@@ -164,7 +167,7 @@ func (o *GithubResolver) ghFindReleaseByPattern(client *github.Client, owner, re
 	var resp *github.Response
 	var err error
 
-	pattern := NewVersionPattern(patternStr)
+	pattern := model.NewVersionPattern(patternStr)
 
 	for resp == nil || resp.NextPage != 0 {
 		Debug.Printf(" | call client.Repositories.ListReleases %s/%s/%d/%d", owner, repo, page, perPage)
@@ -182,7 +185,7 @@ func (o *GithubResolver) ghFindReleaseByPattern(client *github.Client, owner, re
 				continue
 			}
 			Debug.Printf(" || '%s'.matches(%s)", patternStr, release.GetName())
-			if pattern.Matches(NewVersion(release.GetName())) &&
+			if pattern.Matches(model.NewVersion(release.GetName())) &&
 				(latest == nil || versionCompare(release.GetName(), latest.GetName()) > 1) {
 				Debug.Printf(" || found %s", release.GetName())
 				latest = release
@@ -199,14 +202,14 @@ func (o *GithubResolver) ghFindReleaseByPattern(client *github.Client, owner, re
 	return nil, fmt.Errorf("dependency %s/%s-%s not found", owner, repo, patternStr)
 }
 
-func newGithubClient(server string) *github.Client {
+func (o *GithubResolver) newGithubClient(server string) *github.Client {
 	if client, ok := githubClientMap[server]; ok {
 		return client
 	}
 
 	// github client
 	ctx := context.Background()
-	githubAccessToken := bzUserConfig.GetServerToken(server)
+	githubAccessToken := o.appCtx.UserConfig.GetServerToken(server)
 	var tc *http.Client = nil
 	if githubAccessToken != "" {
 		ts := oauth2.StaticTokenSource(

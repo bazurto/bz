@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 RH America LLC <info@rhamerica.com>
 // SPDX-License-Identifier: GPL-3.0-only
 
-package lib
+package utils
 
 import (
 	"archive/tar"
@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -28,23 +27,23 @@ var (
 	antMatcher        = antpath.New()
 )
 
-func mkdir(d string) error {
+func Mkdir(d string) error {
 	if err := os.MkdirAll(d, 0770); err != nil {
 		return err
 	}
 	return nil
 }
 
-func fileExists(f string) bool {
+func FileExists(f string) bool {
 	_, err := os.Stat(f)
 	return !os.IsNotExist(err)
 }
 
-func mkdirIfNotExists(d string) error {
-	if fileExists(d) {
+func MkdirIfNotExists(d string) error {
+	if FileExists(d) {
 		return nil
 	}
-	return mkdir(d)
+	return Mkdir(d)
 }
 
 func Uncompress(archiveFileName, dstDirName string) error {
@@ -261,7 +260,7 @@ func Untgz(fileName, dir string) error {
 
 	tarReader := tar.NewReader(uncompressedStream)
 
-	if !fileExists(dir) {
+	if !FileExists(dir) {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return err
 		}
@@ -354,7 +353,7 @@ func uncompressActualPath(dir, path string) (string, error) {
 }
 
 // isIonFile detects if file is ion
-func isIonFile(f string) bool {
+func IsIonFile(f string) bool {
 	ext := filepath.Ext(f)
 	if strings.EqualFold(ext, ".ion") {
 		return true
@@ -371,7 +370,7 @@ func isIonFile(f string) bool {
 	return false
 }
 
-func jsonLoad(f string, cfg any) error {
+func JsonLoad(f string, cfg any) error {
 	b, err := os.ReadFile(f)
 	if err != nil {
 		return fmt.Errorf("unable to load JSON|ION file %s: %w", f, err)
@@ -379,7 +378,7 @@ func jsonLoad(f string, cfg any) error {
 	return json.Unmarshal(b, cfg)
 }
 
-func ionLoad(f string, cfg any) error {
+func IonLoad(f string, cfg any) error {
 	b, err := os.ReadFile(f)
 	if err != nil {
 		return fmt.Errorf("unable to load JSON|ION file %s: %w", f, err)
@@ -387,7 +386,7 @@ func ionLoad(f string, cfg any) error {
 	return ion.Unmarshal(b, cfg)
 }
 
-func hclLoad(f string, cfg any) error {
+func HclLoad(f string, cfg any) error {
 	b, err := os.ReadFile(f)
 	if err != nil {
 		return fmt.Errorf("unable to load HCL file %s: %w", f, err)
@@ -471,7 +470,7 @@ func (c *CircularDependencyDetector) Clone() *CircularDependencyDetector {
 // mapMerge merges m1 with the value of m2 without modifying the
 // original map.   The values of m2 will override any duplicate
 // values of m1
-func mapMerge(m1, m2 map[string]string) map[string]string {
+func MapMerge(m1, m2 map[string]string) map[string]string {
 	m := make(map[string]string)
 	for k, v := range m1 {
 		m[k] = v
@@ -482,7 +481,7 @@ func mapMerge(m1, m2 map[string]string) map[string]string {
 	return m
 }
 
-func mapJoin(m map[string]string, kvGlue, glue string) string {
+func MapJoin(m map[string]string, kvGlue, glue string) string {
 	s := ""
 	for k, v := range m {
 		s += fmt.Sprintf("%s%s%s%s", k, kvGlue, v, glue)
@@ -490,14 +489,14 @@ func mapJoin(m map[string]string, kvGlue, glue string) string {
 	return s
 }
 
-func toEnvKey(k string) string {
+func ToEnvKey(k string) string {
 	k = strings.ToUpper(k)
 	k = strings.ReplaceAll(k, ".", "_")
 	k = strings.ReplaceAll(k, "-", "_")
 	k = strings.ReplaceAll(k, "/", "_")
 	return k
 }
-func toPropKey(k string) string {
+func ToPropKey(k string) string {
 	k = strings.ToLower(k)
 	k = strings.ReplaceAll(k, "_", ".")
 	k = strings.ReplaceAll(k, "-", ".")
@@ -505,49 +504,6 @@ func toPropKey(k string) string {
 	return k
 }
 
-func execCommand(ed *ResolvedDependency, args []string) int {
-	// env vars
-	newPath, newEnv := ed.Resolve()
-
-	// Set the path
-	path := os.Getenv("PATH") // get original path
-	pathParts := strings.Split(path, string([]rune{os.PathListSeparator}))
-	newPath = append(newPath, pathParts...)
-	newEnv["PATH"] = strings.Join(newPath, string([]rune{os.PathListSeparator}))
-
-	// Args
-	args, err := ed.ExpandCommand(args)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
-	}
-
-	//executeCommand(args, newEnv)
-	//debug.Printf("env: \n%s\n", mapJoin(env, "=", "\n"))
-	Debug.Printf("command: %s", strings.Join(args, " "))
-
-	// Set environment
-	for k, v := range newEnv {
-		os.Setenv(k, v)
-	}
-
-	prog := args[0]
-	progArgs := args[1:]
-	cmd := exec.Command(prog, progArgs...)
-	cmd.Stdout = os.Stdout
-	cmd.Stdin = os.Stdin
-	cmd.Stderr = os.Stderr
-	err = cmd.Run()
-	if err != nil {
-		if exitError, ok := err.(*exec.ExitError); ok {
-			return exitError.ExitCode()
-		} else {
-			fmt.Fprintf(os.Stderr, "`%s`: %s\n", strings.Join(args, " "), err)
-			return cmd.ProcessState.ExitCode()
-		}
-	}
-	return 0
-}
 
 // jsonDecode decodes json and returns pointer of R type passed
 // e.g.1:
@@ -559,7 +515,7 @@ func execCommand(ed *ResolvedDependency, args []string) int {
 //	mapPtr, err := jsonDecode(`{"fld1": "Val1"}`, make(map[string]string))
 //	m := *mapPtr
 //	fmt.Println(m["fld1"])
-func jsonDecode[T string | []byte](b T, v any) error {
+func JsonDecode[T string | []byte](b T, v any) error {
 	switch tmp := any(b).(type) {
 	case string:
 		//try(json.Unmarshal([]byte(tmp), &v))

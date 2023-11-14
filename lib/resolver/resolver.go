@@ -1,23 +1,24 @@
 // SPDX-FileCopyrightText: 2023 RH America LLC <info@rhamerica.com>
 // SPDX-License-Identifier: GPL-3.0-only
 
-package lib
+package resolver
 
 import (
 	"fmt"
 	"runtime"
 
 	"github.com/Masterminds/semver"
+	"github.com/bazurto/bz/lib/model"
 )
 
 type Resolver interface {
 	// Resolves a fuzzy coord to a hard resolved coord
-	ResolveCoord(c *FuzzyCoord) (*LockedCoord, error)
+	ResolveCoord(c *model.FuzzyCoord) (*model.LockedCoord, error)
 	// Download coord pointed by c into file
-	DownloadResolvedCoord(c *LockedCoord, dir string) (string, error)
+	DownloadResolvedCoord(c *model.LockedCoord, dir string) (string, error)
 }
 
-func possibleAssetNames(c *LockedCoord) []BzAsset {
+func possibleAssetNames(c *model.LockedCoord) []BzAsset {
 	osArch := fmt.Sprintf("%s-%s", runtime.GOOS, runtime.GOARCH)
 
 	extensions := []string{"zip", "tgz", "tar.gz"} // possible extensions
