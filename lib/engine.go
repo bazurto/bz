@@ -83,29 +83,32 @@ func (o *Engine) ExecuteWithIO(
 	}
 
 	// env vars
-	ctx := model.ExecContext{}
-	rdep.Resolve(&ctx)
+	ctx := rdep.Resolve()
 
-	//
-	path := os.Getenv("PATH")
-	pathParts := strings.Split(path, string([]rune{os.PathListSeparator}))
-	newPath = append(newPath, pathParts...)
-	os.Setenv("PATH", strings.Join(newPath, string([]rune{os.PathListSeparator})))
+	// Keep Original OS Path
+	originalPathPathStr := os.Getenv("PATH") // /uar/local/bin:/usr/bin
 
-	// Args
-	args, err := ed.ExpandCommand(args)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
-	}
+	// Expand aliases
+	args = ctx.ResolveAlias(args)
 
-	//executeCommand(args, newEnv)
-	//debug.Printf("env: \n%s\n", mapJoin(env, "=", "\n"))
-	//Debug.Printf("command: %s", strings.Join(args, " "))
 	// SetEnv
-	for k, v := range newEnv {
+	for k, v := range ctx.Env() {
 		os.Setenv(k, v)
 	}
+
+	//originalOsPathParts := strings.Split(originalPathPathStr, string([]rune{os.PathListSeparator})) // ["/usr/local/bin", "/usr/bin"]
+	//ctx.SetPath(append(ctx.Path(), originalOsPathParts...))
+	// Restore OS path
+	os.Setenv(
+		"PATH",
+		strings.Join(
+			[]string{os.Getenv("PATH") + originalPathPathStr},
+			string([]rune{os.PathListSeparator}),
+		),
+	)
+	defer func() {
+		os.Setenv("PATH", originalPathPathStr)
+	}()
 
 	prog := args[0]
 	progArgs := args[1:]
@@ -113,7 +116,7 @@ func (o *Engine) ExecuteWithIO(
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
-	err = cmd.Run()
+	err := cmd.Run()
 	if err != nil {
 		if exitError, ok := err.(*exec.ExitError); ok {
 			return exitError.ExitCode()
@@ -312,7 +315,7 @@ func (o *Engine) lockedConfigContentFromDir(extractToDir string) (*model.LockedC
 
 	lcc, err := model.LockedConfigContentFromFile(configFile)
 	if err != nil {
-		return nil, fmt.Errorf("error reading %s: %w", configFile, err)
+		return nil, fmt.Errorf("error@reading %s: %w", configFile, err)
 	}
 
 	return lcc, nil

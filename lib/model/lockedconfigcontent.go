@@ -4,8 +4,6 @@
 package model
 
 import (
-	"fmt"
-
 	"github.com/bazurto/bz/lib/utils"
 )
 
@@ -21,6 +19,5 @@ func LockedConfigContentFromFile(f string) (*LockedConfigContent, error) {
 	var err error
 	cfg := LockedConfigContent{}
 	err = utils.JsonLoad(f, &cfg)
-	fmt.Printf("error reading %s: %s", f, err)
 	return &cfg, err
 }

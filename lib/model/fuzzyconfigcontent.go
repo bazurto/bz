@@ -11,7 +11,6 @@ import (
 	"github.com/hashicorp/hcl/v2"
 )
 
-
 type FuzzyConfigContent struct {
 	BinDir   string            `ion:"binDir" json:"binDir" hcl:"binDir,optional"`
 	Deps     []string          `ion:"deps" json:"deps" hcl:"deps,optional"`

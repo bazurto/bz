@@ -5,6 +5,6 @@ deps = [
 ]
 
 triggers  {
-  preRunScript = "$DIR/prerun.py"
-  installScript = "$DIR/install.py"
+  preRunScript = "$DIR/prerun.php"
+  installScript = "$DIR/install.php"
 }

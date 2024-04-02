@@ -5,48 +5,66 @@ package exec
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
 	oexec "os/exec"
 
-	"github.com/bazurto/bz/lib/model"
+	"mvdan.cc/sh/shell"
 )
 
 type ExecContext interface {
-	Env()
+	ResolveAlias(args []string) []string
+	Env() map[string]string
 }
 
-func ExecCommand(ctx ExecContext) int {
-	// Set the path
-	//path := os.Getenv("PATH") // get original path
-	//pathParts := strings.Split(path, string([]rune{os.PathListSeparator}))
-	//newPath = append(newPath, pathParts...)
-	//newEnv["PATH"] = strings.Join(newPath, string([]rune{os.PathListSeparator}))
+func ExecCommandStr(
+	ctx ExecContext,
+	args string,
+	stdout io.Writer,
+	stderr io.Writer,
+	stdin io.Reader,
+) int {
+	expanded, err := shell.Fields(args, func(k string) string {
+		if v, ok := ctx.Env()[k]; ok {
+			return v
+		}
+		return fmt.Sprintf("$%s", k)
+	})
 
-	// Args
-	args, err := ed.ExpandCommand(args)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
+		return -1
 	}
+	return ExecCommand(ctx, expanded, stdout, stderr, stdin)
+}
 
-	//executeCommand(args, newEnv)
-	//debug.Printf("env: \n%s\n", mapJoin(env, "=", "\n"))
-	//Debug.Printf("command: %s", strings.Join(args, " "))
+func ExecCommand(
+	ctx ExecContext,
+	args []string,
+	stdout io.Writer,
+	stderr io.Writer,
+	stdin io.Reader,
+) int {
+	// Args
+	args = ctx.ResolveAlias(args)
 
 	// Set environment
-	for k, v := range newEnv {
+	for k, v := range ctx.Env() {
 		os.Setenv(k, v)
 	}
+
+	// fmt.Println("----------------------------------------------------")
+	// fmt.Printf("PATH=%s\n", os.Getenv("PATH"))
+	// fmt.Println("----------------------------------------------------")
 
 	prog := args[0]
 	progArgs := args[1:]
 	cmd := oexec.Command(prog, progArgs...)
-	cmd.Stdout = os.Stdout
-	cmd.Stdin = os.Stdin
-	cmd.Stderr = os.Stderr
-	err = cmd.Run()
+	cmd.Stdout = stdout
+	cmd.Stdin = stdin
+	cmd.Stderr = stderr
+	err := cmd.Run()
 	if err != nil {
 		if exitError, ok := err.(*oexec.ExitError); ok {
 			return exitError.ExitCode()
