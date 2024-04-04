@@ -15,7 +15,7 @@ type Resolver interface {
 	// Resolves a fuzzy coord to a hard resolved coord
 	ResolveCoord(c *model.FuzzyCoord) (*model.LockedCoord, error)
 	// Download coord pointed by c into file
-	DownloadResolvedCoord(c *model.LockedCoord, dir string) (string, error)
+	DownloadResolvedCoord(c *model.LockedCoord) (string, error, bool)
 }
 
 func possibleAssetNames(c *model.LockedCoord) []BzAsset {

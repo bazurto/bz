@@ -263,8 +263,9 @@ func (o *Engine) resolvedDependencyFromConfigContext(
 		//
 		// Download Dependency if it doesn't exist
 		//
-		extractToDir := filepath.Join(o.resolvedCoordToDir(subLockedCoord), "extracted")
-		if err := o.downloadAndInstallDependencyIfNotExists(subLockedCoord, extractToDir); err != nil {
+		//extractToDir := filepath.Join(o.resolvedCoordToDir(subLockedCoord), "extracted")
+		extractToDir, err := o.downloadAndInstallDependencyIfNotExists(subLockedCoord)
+		if err != nil {
 			return nil, err
 		}
 
@@ -294,6 +295,7 @@ func (o *Engine) resolvedDependencyFromConfigContext(
 	return &rd, nil
 }
 
+/*
 func (o *Engine) resolvedCoordToDir(rcoord *model.LockedCoord) string {
 	dir := filepath.Join(
 		o.appCtx.UserCacheDirName,
@@ -305,6 +307,7 @@ func (o *Engine) resolvedCoordToDir(rcoord *model.LockedCoord) string {
 	)
 	return dir
 }
+*/
 
 // lockedConfigContentFromDir takes a directory name `dir` and returns the json from the lock file
 func (o *Engine) lockedConfigContentFromDir(extractToDir string) (*model.LockedConfigContent, error) {
@@ -369,7 +372,6 @@ func (o *Engine) readFuzzyConfigContentFromDir(extractToDir string) (*model.Lock
 		//
 		var lockCoord *model.LockedCoord
 		for _, resolver := range o.resolvers {
-			//Info.Printf("calling %v.ResoveCoord(%v)", resolver, fuzzyCoord)
 			lockCoord, err = resolver.ResolveCoord(fuzzyCoord)
 			if err != nil {
 				return nil, fmt.Errorf("resolvedDependencyFromConfigContext: ResolveCoord: %w", err)
@@ -426,46 +428,43 @@ func (o *Engine) updateLockFile(dir string, rd *model.ResolvedDependency) error 
 // downloadAndInstallDependencyIfNotExists does the actual work of installing
 // the dependency.  It loops through all resolvers
 // and unzips the dependency
-func (o *Engine) downloadAndInstallDependencyIfNotExists(lockCoord *model.LockedCoord, extractToDir string) error {
-	// nothing to do... already installed
-	if utils.FileExists(extractToDir) {
-		return nil
-	}
-
+// func (o *Engine) downloadAndInstallDependencyIfNotExists(lockCoord *model.LockedCoord, extractToDir string) error {
+func (o *Engine) downloadAndInstallDependencyIfNotExists(lockCoord *model.LockedCoord) (string, error) {
 	// download if it does not exists
-	var file string
+	var extractToDir string
 	var err error
-	subDir := o.resolvedCoordToDir(lockCoord)
-	if !utils.FileExists(subDir) {
-		for _, resolver := range o.resolvers {
-			Info.Printf("calling %v.DownloadResolvedCoord(%s)", resolver, lockCoord)
-			file, err = resolver.DownloadResolvedCoord(lockCoord, subDir)
-			if err != nil {
-				return fmt.Errorf("download coord: %w", err)
-			}
-			if utils.FileExists(file) {
-				break
-			}
+	var resolved bool
+	for _, resolver := range o.resolvers {
+		Debug.Printf("calling %v.DownloadResolvedCoord(%s)", resolver, lockCoord)
+		extractToDir, err, resolved = resolver.DownloadResolvedCoord(lockCoord)
+		if err != nil {
+			return "", fmt.Errorf("download coord: %w", err)
+		}
+		if resolved {
+			break
 		}
 	}
 
-	err = o.extractDependency(lockCoord, file, extractToDir)
-	if err != nil {
-		return fmt.Errorf("unable to extract dependency: %w", err)
-	}
+	/*
+		err = o.extractDependency(lockCoord, file, extractToDir)
+		if err != nil {
+			return fmt.Errorf("unable to extract dependency: %w", err)
+		}
+	*/
 
 	lc, err := o.lockedConfigContentFromDir(extractToDir)
 	if err != nil {
-		return fmt.Errorf("load config content from dir: %w", err)
+		return "", fmt.Errorf("load config content from dir: %w", err)
 	}
 
 	if err := lc.Triggers.RunInstallScript(lc); err != nil {
-		return fmt.Errorf("install script: %w", err)
+		return "", fmt.Errorf("install script: %w", err)
 	}
 
-	return nil
+	return extractToDir, nil
 }
 
+/*
 func (o *Engine) extractDependency(rcoord *model.LockedCoord, file string, extractToDir string) error {
 	var err error
 	ext := filepath.Ext(file)
@@ -479,3 +478,4 @@ func (o *Engine) extractDependency(rcoord *model.LockedCoord, file string, extra
 	}
 	return nil
 }
+*/

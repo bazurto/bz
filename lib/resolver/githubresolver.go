@@ -38,6 +38,12 @@ func (o *GithubResolver) String() string {
 func (o *GithubResolver) ResolveCoord(c *model.FuzzyCoord) (*model.LockedCoord, error) {
 	Debug.Printf("Start GithubResolver.ResolveCoord(%s)", c)
 
+	// if not github, then bail out
+	if c.Server != "github.com" {
+		Debug.Printf("Start GithubResolver.ResolveCoord(%s): not a github dependency...", c)
+		return nil, nil
+	}
+
 	//
 	ctx := context.Background()
 	client := o.newGithubClient(c.Server)
@@ -79,28 +85,49 @@ func (o *GithubResolver) ResolveCoord(c *model.FuzzyCoord) (*model.LockedCoord, 
 	}, nil
 }
 
-func (o *GithubResolver) DownloadResolvedCoord(rc *model.LockedCoord, dir string) (string, error) {
-	Debug.Printf("Start DownloadResolvedCoord(%v, %s)", rc, dir)
-	//
-	ctx := context.Background()
-	client := o.newGithubClient(rc.Server)
+func (o *GithubResolver) DownloadResolvedCoord(lc *model.LockedCoord) (string, error, bool) {
+	Debug.Printf("Start DownloadResolvedCoord(%v)", lc)
+
+	// if not github, then bail out
+	if lc.Server != "github.com" {
+		return "", nil, false
+	}
+
+	dir := filepath.Join(
+		o.appCtx.UserCacheDirName,
+		"deps",
+		lc.Server,
+		lc.Owner,
+		lc.Repo,
+		fmt.Sprintf("v%s", lc.Version.Canonical()),
+	)
+	extractToDir := filepath.Join(dir, "extracted")
+
+	// nothing to do... already installed
+	if utils.FileExists(extractToDir) {
+		return extractToDir, nil, true
+	}
 
 	//
-	githubVersion := fmt.Sprintf("v%s", rc.Version.Canonical())
-	release, _, err := client.Repositories.GetReleaseByTag(ctx, rc.Owner, rc.Repo, githubVersion)
+	ctx := context.Background()
+	client := o.newGithubClient(lc.Server)
+
+	//
+	githubVersion := fmt.Sprintf("v%s", lc.Version.Canonical())
+	release, _, err := client.Repositories.GetReleaseByTag(ctx, lc.Owner, lc.Repo, githubVersion)
 	if err != nil {
-		return "", err
+		return "", err, false
 	}
 
 	// Get the asset name that we should download in the priority order of possible asset names function
-	asset, err := o.getAssetFromRelease(rc, release)
+	asset, err := o.getAssetFromRelease(lc, release)
 	if err != nil {
-		return "", fmt.Errorf("GithubResolver.DownloadResolvedCoord(): %w", err)
+		return "", fmt.Errorf("GithubResolver.DownloadResolvedCoord(): %w", err), false
 	}
 
 	// download file
 	if err := utils.MkdirIfNotExists(dir); err != nil {
-		return "", err
+		return "", err, false
 	} else {
 		Debug.Printf("dir already exists: %s", dir)
 	}
@@ -109,29 +136,34 @@ func (o *GithubResolver) DownloadResolvedCoord(rc *model.LockedCoord, dir string
 	downloadFileTmp := fmt.Sprintf("%s.tmp", file)
 	w, err := os.Create(downloadFileTmp)
 	if err != nil {
-		return "", err
+		return "", err, false
 	}
 	defer w.Close()
 
 	//
-	readCloser, _, err := client.Repositories.DownloadReleaseAsset(ctx, rc.Owner, rc.Repo, asset.GetID(), http.DefaultClient)
+	readCloser, _, err := client.Repositories.DownloadReleaseAsset(ctx, lc.Owner, lc.Repo, asset.GetID(), http.DefaultClient)
 	if err != nil {
-		return "", err
+		return "", err, false
 	}
 	defer readCloser.Close()
 	Info.Printf("Downloading file %s ...", file)
 	if _, err := io.Copy(w, readCloser); err != nil {
-		return "", err
+		return "", err, false
 	}
 
 	// rename tmp download file to downloadFile
 	if err := os.Rename(downloadFileTmp, file); err != nil {
-		return "", err
+		return "", err, false
 	} else {
 		Info.Printf("Downloading file %s DONE", file)
 	}
 
-	return file, nil
+	err = o.extractDependency(lc, file, extractToDir)
+	if err != nil {
+		return "", fmt.Errorf("unable to extract dependency: %w", err), false
+	}
+
+	return extractToDir, nil, true
 }
 
 func (o *GithubResolver) getAssetFromRelease(c *model.LockedCoord, release *github.RepositoryRelease) (*github.ReleaseAsset, error) {
@@ -220,4 +252,18 @@ func (o *GithubResolver) newGithubClient(server string) *github.Client {
 	client := github.NewClient(tc)
 	githubClientMap[server] = client
 	return client
+}
+
+func (o *GithubResolver) extractDependency(lc *model.LockedCoord, file string, extractToDir string) error {
+	var err error
+	ext := filepath.Ext(file)
+	if ext == ".zip" {
+		err = utils.Unzip(file, extractToDir)
+	} else if ext == ".tgz" {
+		err = utils.Untgz(file, extractToDir)
+	}
+	if err != nil {
+		return err
+	}
+	return nil
 }

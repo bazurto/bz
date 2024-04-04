@@ -4,7 +4,7 @@
 package resolver
 
 import (
-	"fmt"
+	"strings"
 
 	"github.com/bazurto/bz/lib/model"
 	"github.com/bazurto/bz/lib/utils"
@@ -27,9 +27,26 @@ func (o *LocalDevResolver) String() string {
 
 func (o *LocalDevResolver) ResolveCoord(c *model.FuzzyCoord) (*model.LockedCoord, error) {
 	Debug.Printf("Start LocalDevResolver.ResolveCoord(%s)", c)
-	return nil, nil
+
+	if c.Server != "local.local" && c.Server != "local" {
+		return nil, nil
+	}
+
+	depString := strings.TrimPrefix(c.OriginalString, "local.local")
+	depString = strings.TrimPrefix(depString, "local")
+
+	return &model.LockedCoord{
+		Server:  c.Server,
+		Owner:   c.Owner,
+		Repo:    depString,
+		Version: model.NewVersion(c.Version),
+	}, nil
 }
 
-func (o *LocalDevResolver) DownloadResolvedCoord(rc *model.LockedCoord, dir string) (string, error) {
-	return "", fmt.Errorf("Not implemented")
+func (o *LocalDevResolver) DownloadResolvedCoord(lc *model.LockedCoord) (string, error, bool) {
+	if lc.Server != "local.local" && lc.Server != "local" {
+		return "", nil, false
+	}
+
+	return lc.Repo, nil, true
 }

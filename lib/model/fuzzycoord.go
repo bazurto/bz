@@ -9,10 +9,11 @@ import (
 )
 
 type FuzzyCoord struct {
-	Server  string // github.com | local.local
-	Owner   string // rhamerica
-	Repo    string // myrepo
-	Version string // no v
+	OriginalString string // original string
+	Server         string // github.com | local.local
+	Owner          string // rhamerica
+	Repo           string // myrepo
+	Version        string // no v
 }
 
 func NewCoordFromStr(depStr string) (*FuzzyCoord, error) {
@@ -47,10 +48,11 @@ func NewCoordFromStr(depStr string) (*FuzzyCoord, error) {
 	}
 
 	return &FuzzyCoord{
-		Server:  server,
-		Owner:   owner,
-		Repo:    repo,
-		Version: version,
+		OriginalString: depStr,
+		Server:         server,
+		Owner:          owner,
+		Repo:           repo,
+		Version:        version,
 	}, nil
 }
 

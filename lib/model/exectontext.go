@@ -76,7 +76,7 @@ func (o *ExecContext) ResolveAlias(args []string) []string {
 	if str, ok := o.Alias[arg]; ok {
 		e := o.Env()
 		expanded, _ := shell.Fields(str, func(k string) string {
-			if v, ok := e[str]; ok {
+			if v, ok := e[k]; ok {
 				return v
 			}
 			return fmt.Sprintf("$%s", k)
