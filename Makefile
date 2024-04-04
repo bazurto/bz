@@ -1,19 +1,16 @@
 # SPDX-FileCopyrightText: 2023 RH America LLC <info@rhamerica.com>
 # SPDX-License-Identifier: GPL-3.0-only
 
-
 REVISION=$$(./.github/revision_get.sh)
-
 GO_BUILD=go build -ldflags "-X main.buildInfo=revision:$(REVISION);"
 
-bz:
-	$(GO_BUILD) -gcflags "-N -l"
+build: bz
 
-build:
-	go build -v ./...
+bz:
+	$(GO_BUILD) -gcflags "all=-N -l"
 
 install: bz
-	go install -gcflags "-N -l"
+	go install
 
 test:
 	go build -v ./...

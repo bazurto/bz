@@ -7,10 +7,10 @@ require (
 	github.com/amzn/ion-go v1.1.3
 	github.com/google/go-github/v47 v47.0.0
 	github.com/hashicorp/hcl/v2 v2.14.0
-	github.com/stretchr/testify v1.6.1
+	github.com/robertkrimen/otto v0.2.1
+	github.com/stretchr/testify v1.8.1
 	github.com/vbauerster/mpb/v8 v8.1.4
 	github.com/vibrantbyte/go-antpath v1.1.1
-	github.com/yuin/gopher-lua v1.1.0
 	golang.org/x/oauth2 v0.0.0-20220822191816-0ebed06d0094
 	mvdan.cc/sh v2.6.4+incompatible
 )
@@ -34,8 +34,9 @@ require (
 	golang.org/x/sync v0.0.0-20220907140024-f12130a52804 // indirect
 	golang.org/x/sys v0.0.0-20221013171732-95e765b1cc43 // indirect
 	golang.org/x/term v0.0.0-20220722155259-a9ba230a4035 // indirect
-	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/text v0.4.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
+	gopkg.in/sourcemap.v1 v1.0.5 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

@@ -1,14 +1,14 @@
 // SPDX-FileCopyrightText: 2023 RH America LLC <info@rhamerica.com>
 // SPDX-License-Identifier: GPL-3.0-only
 
-package lib
+package utils
 
 import (
 	"os"
 	"path/filepath"
 )
 
-func fsAbs(f string) string {
+func FsAbs(f string) string {
 	var err error
 	f, err = filepath.Abs(f)
 	if err != nil {
@@ -17,7 +17,7 @@ func fsAbs(f string) string {
 	return f
 }
 
-func getCurrentDir() string {
+func GetCurrentDir() string {
 	dir, _ := os.Getwd()
-	return fsAbs(dir)
+	return FsAbs(dir)
 }
