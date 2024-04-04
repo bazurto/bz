@@ -133,21 +133,27 @@ func (o *GithubResolver) DownloadResolvedCoord(lc *model.LockedCoord) (string, e
 	}
 
 	file := filepath.Join(dir, asset.GetName())
-	downloadFileTmp := fmt.Sprintf("%s.tmp", file)
-	w, err := os.Create(downloadFileTmp)
-	if err != nil {
-		return "", err, false
-	}
-	defer w.Close()
+	downloadFileTmp, err := func() (string, error) {
+		downloadFileTmp := fmt.Sprintf("%s.tmp", file)
+		w, err := os.Create(downloadFileTmp)
+		if err != nil {
+			return "", err
+		}
+		defer w.Close()
 
-	//
-	readCloser, _, err := client.Repositories.DownloadReleaseAsset(ctx, lc.Owner, lc.Repo, asset.GetID(), http.DefaultClient)
+		//
+		readCloser, _, err := client.Repositories.DownloadReleaseAsset(ctx, lc.Owner, lc.Repo, asset.GetID(), http.DefaultClient)
+		if err != nil {
+			return "", err
+		}
+		defer readCloser.Close()
+		Info.Printf("Downloading file %s ...", file)
+		if _, err := io.Copy(w, readCloser); err != nil {
+			return "", err
+		}
+		return downloadFileTmp, nil
+	}()
 	if err != nil {
-		return "", err, false
-	}
-	defer readCloser.Close()
-	Info.Printf("Downloading file %s ...", file)
-	if _, err := io.Copy(w, readCloser); err != nil {
 		return "", err, false
 	}
 
