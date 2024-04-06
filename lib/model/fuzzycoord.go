@@ -21,17 +21,15 @@ func NewCoordFromStr(depStr string) (*FuzzyCoord, error) {
 	// github.com/owner/repo@1.2.3 -> github.com,owner, repo-v1.2.3
 	server, owner, repoVersion := splitPattern3(depStr, "/")
 
-	if server == "" || owner == "" || repoVersion == "" {
-		return nil, fmt.Errorf("unable to parse dependency '%s': invalid format", depStr)
-	}
-
 	if server == "" {
 		return nil, fmt.Errorf("unable to parse dependency '%s': server name is required", depStr)
 	}
 
-	if owner == "" {
-		return nil, fmt.Errorf("unable to parse dependency '%s': owner name is required", depStr)
-	}
+	/*
+		if owner == "" {
+			return nil, fmt.Errorf("unable to parse dependency '%s': owner name is required", depStr)
+		}
+	*/
 
 	// repo@1.2.3
 	// my-repo-no-version
@@ -43,9 +41,11 @@ func NewCoordFromStr(depStr string) (*FuzzyCoord, error) {
 		version = version[1:]
 	}
 
-	if repo == "" {
-		return nil, fmt.Errorf("unable to parse dependency '%s': repo name is required", depStr)
-	}
+	/*
+		if repo == "" {
+			return nil, fmt.Errorf("unable to parse dependency '%s': repo name is required", depStr)
+		}
+	*/
 
 	return &FuzzyCoord{
 		OriginalString: depStr,
