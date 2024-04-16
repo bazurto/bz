@@ -263,7 +263,6 @@ func (o *Engine) resolvedDependencyFromConfigContext(
 		//
 		// Download Dependency if it doesn't exist
 		//
-		//extractToDir := filepath.Join(o.resolvedCoordToDir(subLockedCoord), "extracted")
 		extractToDir, err := o.downloadAndInstallDependencyIfNotExists(subLockedCoord)
 		if err != nil {
 			return nil, err
@@ -463,19 +462,3 @@ func (o *Engine) downloadAndInstallDependencyIfNotExists(lockCoord *model.Locked
 
 	return extractToDir, nil
 }
-
-/*
-func (o *Engine) extractDependency(rcoord *model.LockedCoord, file string, extractToDir string) error {
-	var err error
-	ext := filepath.Ext(file)
-	if ext == ".zip" {
-		err = utils.Unzip(file, extractToDir)
-	} else if ext == ".tgz" {
-		err = utils.Untgz(file, extractToDir)
-	}
-	if err != nil {
-		return err
-	}
-	return nil
-}
-*/

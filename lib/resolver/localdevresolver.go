@@ -34,6 +34,9 @@ func (o *LocalDevResolver) ResolveCoord(c *model.FuzzyCoord) (*model.LockedCoord
 
 	depString := strings.TrimPrefix(c.OriginalString, "local.local")
 	depString = strings.TrimPrefix(depString, "local")
+	if strings.HasPrefix(depString, "/") {
+		depString = string([]rune(depString)[1:]) // remove beginging slash
+	}
 
 	return &model.LockedCoord{
 		Server:  c.Server,
