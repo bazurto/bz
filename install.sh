@@ -32,6 +32,6 @@ if [[ "$binary" == "unknown" ]]; then
     exit
 fi
 
-sudo curl https://github.com/bazurto/bz/releases/download/v0.1.7/$binary -o /usr/local/bin/bz
+sudo curl -L https://github.com/bazurto/bz/releases/download/v0.1.7/$binary -o /usr/local/bin/bz
 sudo chmod +x /usr/local/bin/bz
 
