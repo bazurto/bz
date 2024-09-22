@@ -83,6 +83,7 @@ func (o *Engine) ExecuteWithIO(
 	}
 
 	// env vars
+	os.Setenv("BZ_PROJECT_DIR", rdep.Dir) // also have to be set in lib/model/resolveddependency.go
 	ctx := rdep.Resolve()
 
 	// Keep Original OS Path

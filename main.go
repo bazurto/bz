@@ -19,7 +19,7 @@ var (
 func main() {
 	os.Setenv("BZ_INFO", buildInfo)
 
-	appCtx:=model.NewDefaultAppContext();
+	appCtx := model.NewDefaultAppContext()
 
 	lib.Debug.Printf("Look for project files: %s", appCtx.ConfigFileNames)
 	// current project

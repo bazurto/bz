@@ -5,6 +5,7 @@ package model
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/bazurto/bz/lib/utils"
@@ -153,6 +154,7 @@ func (ed *ResolvedDependency) resolveLocalEnvVars(subCtx []ExecContext) *ExecCon
 	env := make(map[string]string)
 	env["DIR"] = ed.Dir // DIR
 	env["CURDIR"] = utils.GetCurrentDir()
+	env["BZ_PROJECT_DIR"] = os.Getenv("BZ_PROJECT_DIR")
 	env = utils.MapMerge(ctx.Env(), env)
 	//
 	for k, v := range ed.Exports {
