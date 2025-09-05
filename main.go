@@ -42,15 +42,13 @@ func main() {
 	engine.AddResolver(ghr)
 	engine.AddResolver(local)
 
-	// Get Context From Config
-	rdep, err := engine.ContextFromConfigDir(projectLocation.Root) // does resolving and downloading
+	// Generate Execution Context from root directory
+	execCtx, err := engine.ContextFromConfigDir(projectLocation.Root) // resolves and downloads
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s", err)
 		os.Exit(1)
 	}
 
-	// rctx has env vars, aliases and all resolved information
-	exitCode := engine.Execute(rdep, os.Args[1:])
-	//exitCode = rdep.Execute(os.Args[1:])
+	exitCode := engine.Execute(execCtx, os.Args[1:])
 	os.Exit(exitCode)
 }

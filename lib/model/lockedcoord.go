@@ -14,6 +14,16 @@ type LockedCoord struct {
 	Version Version `ion:"version" json:"version"` // no v
 }
 
+func NewLockedCoordLocalBlank() LockedCoord {
+	c := LockedCoord{
+		Server:  "localhost",
+		Owner:   "local",
+		Repo:    "local",
+		Version: NewVersion("0.0.0"),
+	}
+	return c
+}
+
 func (o *LockedCoord) isCoord() {
 }
 

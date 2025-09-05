@@ -18,23 +18,7 @@ import (
 	"github.com/bazurto/bz/lib/utils"
 )
 
-// var (
-// 	AppName            = "bz"
-// 	LockFileName       = fmt.Sprintf(".%s.lock", AppName)
-// 	HomeDir, _         = os.UserHomeDir()
-// 	UserDir            = filepath.Join(HomeDir, fmt.Sprintf(".%s", AppName))
-// 	UserConfigFileName = filepath.Join(UserDir, "config")
-// 	UserCacheDirName   = filepath.Join(UserDir, "cache")
-// 	ConfigFileNames    = []string{
-// 		fmt.Sprintf(".%s.hcl", AppName),
-// 		fmt.Sprintf(".%s.json", AppName),
-// 		fmt.Sprintf(".%s", AppName),
-// 	}
-// 	bzUserConfig *model.UserConfig
-// )
-
 type Engine struct {
-	//configFileNames []string
 	appCtx    model.AppContext
 	resolvers []resolver.Resolver
 }
@@ -42,7 +26,6 @@ type Engine struct {
 func NewEngine(appCtx model.AppContext) *Engine {
 	e := &Engine{
 		appCtx: appCtx,
-		//configFileNames: appCtx.ConfigFileNames,
 	}
 
 	// create directories if it does not exist
@@ -51,27 +34,15 @@ func NewEngine(appCtx model.AppContext) *Engine {
 		os.Exit(1)
 	}
 
-	// // load user config if it exists
-	// if utils.FileExists(UserConfigFileName) {
-	// 	var err error
-	// 	bzUserConfig, err = model.NewUserConfigFromFile(UserConfigFileName)
-	// 	if err != nil {
-	// 		fmt.Fprintf(os.Stderr, "Error reading user config (%s): %s\n", UserConfigFileName, err)
-	// 		os.Exit(1)
-	// 	}
-	// } else {
-	// 	bzUserConfig = &model.UserConfig{}
-	// }
-
 	return e
 }
 
-func (o *Engine) Execute(rdep *model.ResolvedDependency, args []string) int {
-	return o.ExecuteWithIO(rdep, args, os.Stdout, os.Stdin, os.Stderr)
+func (o *Engine) Execute(execCtx *model.DependencyTree, args []string) int {
+	return o.ExecuteWithIO(execCtx, args, os.Stdout, os.Stdin, os.Stderr)
 }
 
 func (o *Engine) ExecuteWithIO(
-	rdep *model.ResolvedDependency,
+	execCtx *model.DependencyTree,
 	args []string,
 	stdout io.Writer,
 	stderr io.Writer,
@@ -83,8 +54,8 @@ func (o *Engine) ExecuteWithIO(
 	}
 
 	// env vars
-	os.Setenv("BZ_PROJECT_DIR", rdep.Dir) // also have to be set in lib/model/resolveddependency.go
-	ctx := rdep.Resolve()
+	os.Setenv("BZ_PROJECT_DIR", execCtx.Dir) // also have to be set in lib/model/dependency_tree.go
+	ctx := execCtx.Resolve()
 
 	// Keep Original OS Path
 	originalPathPathStr := os.Getenv("PATH") // /uar/local/bin:/usr/bin
@@ -114,9 +85,9 @@ func (o *Engine) ExecuteWithIO(
 	prog := args[0]
 	progArgs := args[1:]
 	cmd := exec.Command(prog, progArgs...)
-	cmd.Stdout = os.Stdout
-	cmd.Stdin = os.Stdin
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = stdout
+	cmd.Stdin = stdin
+	cmd.Stderr = stderr
 	err := cmd.Run()
 	if err != nil {
 		if exitError, ok := err.(*exec.ExitError); ok {
@@ -134,7 +105,40 @@ func (o *Engine) AddResolver(r resolver.Resolver) {
 	o.resolvers = append(o.resolvers, r)
 }
 
-func (o *Engine) ContextFromConfigDir(dir string) (*model.ResolvedDependency, error) {
+// ContextFromFuzzyConfig will generate an execution context for a given directory
+// without reading the fuzzy config or locked config.  This method is to be used
+// for on the fly executions.  It does not update locked config
+func (o *Engine) ContextFromFuzzyConfig(dir string, cc *model.FuzzyConfigContent) (*model.DependencyTree, error) {
+	lcc, err := o.lockedConfigFromFuzzyConfig(cc)
+	if err != nil {
+		return nil, err
+	}
+
+	return o.ContextFromLockedConfig(dir, lcc)
+}
+
+// ContextFromLockedConfig will generate an execution context for a given directory
+// without reading the fuzzy config or locked config.  This method is to be used
+// for on the fly executions.  It does not update locked config
+func (o *Engine) ContextFromLockedConfig(dir string, lcc *model.LockedConfigContent) (*model.DependencyTree, error) {
+	//
+	Debug.Printf("read config: %v", lcc)
+	cdd := utils.NewCircularDependencyDetector()
+	c := model.NewLockedCoordLocalBlank()
+
+	// resolve dependency
+	execCtx, err := o.resolvedDependencyFromConfigContext(dir, &c, lcc, cdd)
+	if err != nil {
+		return nil, err
+	}
+
+	return execCtx, nil
+}
+
+// ContextFromConfigDir will generate the execution context from the given directory.
+// It will try to read fuzzy config first, if it does, then it updates the locked config
+// It then will try to read the locked config and resolves execution context
+func (o *Engine) ContextFromConfigDir(dir string) (*model.DependencyTree, error) {
 	var err error
 	// Fuzzy Config Info
 	var fuzzyConfigModTime time.Time
@@ -171,7 +175,7 @@ func (o *Engine) ContextFromConfigDir(dir string) (*model.ResolvedDependency, er
 	} else if fuzzyConfigModTime.After(lockConfigModTime) {
 		// read fuzzy
 		readFuzzy = true
-		Debug.Print("fuzzy config file is newer thatn lock file, stting readFuzzy flag to true")
+		Debug.Print("fuzzy config file is newer than lock file, string readFuzzy flag to true")
 	} else {
 		// read lock
 		Debug.Print("will read from lock file")
@@ -181,7 +185,7 @@ func (o *Engine) ContextFromConfigDir(dir string) (*model.ResolvedDependency, er
 	var lcc *model.LockedConfigContent
 	if readFuzzy {
 		// read from .bz, .bz.hcl, .bz.json
-		lcc, err = o.readFuzzyConfigContentFromDir(dir)
+		lcc, err = o.lockedConfigFromFuzzyConfigContentInDir(dir)
 		shouldUpdateLockFile = true
 		if err != nil {
 			return nil, err
@@ -191,7 +195,7 @@ func (o *Engine) ContextFromConfigDir(dir string) (*model.ResolvedDependency, er
 		lcc, err = o.lockedConfigContentFromDir(dir)
 		if err != nil {
 			// on error ready fuzzy file
-			lcc, err = o.readFuzzyConfigContentFromDir(dir)
+			lcc, err = o.lockedConfigFromFuzzyConfigContentInDir(dir)
 			Warn.Printf("Failed reading %s, updating with %s", lockConfigFileName, fuzzyConfigFileName)
 			shouldUpdateLockFile = true
 			if err != nil {
@@ -203,13 +207,7 @@ func (o *Engine) ContextFromConfigDir(dir string) (*model.ResolvedDependency, er
 	//
 	Debug.Printf("read config: %v", lcc)
 	cdd := utils.NewCircularDependencyDetector()
-	v := model.NewVersion("0.0.0")
-	c := model.LockedCoord{
-		Server:  "localhost",
-		Owner:   "local",
-		Repo:    "local",
-		Version: v,
-	}
+	c := model.NewLockedCoordLocalBlank()
 
 	// resolve dependency
 	resolvedDependency, err := o.resolvedDependencyFromConfigContext(dir, &c, lcc, cdd)
@@ -229,32 +227,32 @@ func (o *Engine) ContextFromConfigDir(dir string) (*model.ResolvedDependency, er
 
 func (o *Engine) resolvedDependencyFromConfigContext(
 	dir string,
-	rcoord *model.LockedCoord,
-	bzContent *model.LockedConfigContent,
+	lockedCoord *model.LockedCoord,
+	lockedConfigContent *model.LockedConfigContent,
 	cdd *utils.CircularDependencyDetector,
-) (*model.ResolvedDependency, error) {
-	Debug.Printf("Start resolvedDependencyFromConfigContext(%s,%v)", dir, rcoord)
+) (*model.DependencyTree, error) {
+	Debug.Printf("Start resolvedDependencyFromConfigContext(%s,%v)", dir, lockedCoord)
 
 	// dir, binDir
 	dir = utils.FsAbs(dir) // default dir
 
 	// exports
-	exports := bzContent.Export
+	exports := lockedConfigContent.Export
 	if exports == nil {
 		exports = make(map[string]string)
 	}
 
 	// aliases
-	aliases := bzContent.Alias
+	aliases := lockedConfigContent.Alias
 	if aliases == nil {
 		aliases = make(map[string]string)
 	}
 
 	// triggers
-	triggers := bzContent.Triggers
+	triggers := lockedConfigContent.Triggers
 
-	var subDeps []*model.ResolvedDependency
-	for _, subLockedCoord := range bzContent.Deps {
+	var subDeps []*model.DependencyTree
+	for _, subLockedCoord := range lockedConfigContent.Deps {
 		cdd2 := cdd.Clone()
 		// Circular depedency protection
 		if err := cdd2.Push(subLockedCoord.CanonicalNameNoVersion()); err != nil {
@@ -285,30 +283,16 @@ func (o *Engine) resolvedDependencyFromConfigContext(
 	}
 
 	//
-	rd := model.ResolvedDependency{}
-	rd.Coord = *rcoord
+	rd := model.DependencyTree{}
+	rd.Coord = *lockedCoord
 	rd.Dir = dir
-	rd.BinDir = bzContent.BinDir
+	rd.BinDir = lockedConfigContent.BinDir
 	rd.Exports = exports
 	rd.Alias = aliases
 	rd.Triggers = triggers
 	rd.Sub = subDeps
 	return &rd, nil
 }
-
-/*
-func (o *Engine) resolvedCoordToDir(rcoord *model.LockedCoord) string {
-	dir := filepath.Join(
-		o.appCtx.UserCacheDirName,
-		"deps",
-		rcoord.Server,
-		rcoord.Owner,
-		rcoord.Repo,
-		fmt.Sprintf("v%s", rcoord.Version.Canonical()),
-	)
-	return dir
-}
-*/
 
 // lockedConfigContentFromDir takes a directory name `dir` and returns the json from the lock file
 func (o *Engine) lockedConfigContentFromDir(extractToDir string) (*model.LockedConfigContent, error) {
@@ -337,15 +321,14 @@ func (o *Engine) findFuzzyConfigFile(dir string) (string, bool) {
 	return "", false
 }
 
-// readFuzzyConfigContentFromDir takes a directory name `dir` and returns the json or hcl from the
-// configuration file as a struct.
-func (o *Engine) readFuzzyConfigContentFromDir(extractToDir string) (*model.LockedConfigContent, error) {
+// loadFuzzyConfigFromDir loads optional fuzzy config from directory
+func (o *Engine) loadFuzzyConfigFromDir(dir string) (*model.FuzzyConfigContent, error) {
 	var cc *model.FuzzyConfigContent
 	var err error
 
 	// if file is in directory, return configuration
 	// otherwise, return default
-	if configFile, found := o.findFuzzyConfigFile(extractToDir); found {
+	if configFile, found := o.findFuzzyConfigFile(dir); found {
 		cc, err = model.FuzzyConfigContentFromFile(configFile)
 		if err != nil {
 			return nil, fmt.Errorf("error reading %s: %w", configFile, err)
@@ -355,11 +338,29 @@ func (o *Engine) readFuzzyConfigContentFromDir(extractToDir string) (*model.Lock
 	// empty
 	if cc == nil {
 		cc = &model.FuzzyConfigContent{
-			BinDir: filepath.Join(extractToDir, "bin"),
+			BinDir: filepath.Join(dir, "bin"),
 			Deps:   nil,
 			Export: make(map[string]string),
 			Alias:  make(map[string]string),
 		}
+	}
+	return cc, nil
+}
+
+// lockedConfigFromFuzzyConfigContentInDir takes a directory name `dir` and returns the json or hcl from the
+// configuration file as a struct.
+func (o *Engine) lockedConfigFromFuzzyConfigContentInDir(dir string) (*model.LockedConfigContent, error) {
+	cc, err := o.loadFuzzyConfigFromDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	return o.lockedConfigFromFuzzyConfig(cc)
+}
+
+// lockedConfigFromFuzzyConfig
+func (o *Engine) lockedConfigFromFuzzyConfig(cc *model.FuzzyConfigContent) (*model.LockedConfigContent, error) {
+	if len(o.resolvers) < 1 {
+		return nil, fmt.Errorf("no resolvers for added to engine")
 	}
 
 	var lockedCoords []*model.LockedCoord
@@ -372,8 +373,8 @@ func (o *Engine) readFuzzyConfigContentFromDir(extractToDir string) (*model.Lock
 
 		//
 		var lockCoord *model.LockedCoord
-		for _, resolver := range o.resolvers {
-			lockCoord, err = resolver.ResolveCoord(fuzzyCoord)
+		for _, reslvr := range o.resolvers {
+			lockCoord, err = reslvr.ResolveCoord(fuzzyCoord)
 			if err != nil {
 				return nil, fmt.Errorf("resolvedDependencyFromConfigContext: ResolveCoord: %w", err)
 			}
@@ -382,7 +383,7 @@ func (o *Engine) readFuzzyConfigContentFromDir(extractToDir string) (*model.Lock
 			}
 		}
 		if lockCoord == nil {
-			return nil, fmt.Errorf("resolvedDependencyFromConfigContext: unable to resolve `%s`", lockCoord)
+			return nil, fmt.Errorf("no resolver for `%s`", fuzzyCoord)
 		}
 
 		lockedCoords = append(lockedCoords, lockCoord)
@@ -402,7 +403,7 @@ func (o *Engine) readFuzzyConfigContentFromDir(extractToDir string) (*model.Lock
 	return &lcc, nil
 }
 
-func (o *Engine) updateLockFile(dir string, rd *model.ResolvedDependency) error {
+func (o *Engine) updateLockFile(dir string, rd *model.DependencyTree) error {
 	lockFileName := filepath.Join(dir, o.appCtx.LockFileName)
 
 	cc := model.LockedConfigContent{}
@@ -429,15 +430,14 @@ func (o *Engine) updateLockFile(dir string, rd *model.ResolvedDependency) error 
 // downloadAndInstallDependencyIfNotExists does the actual work of installing
 // the dependency.  It loops through all resolvers
 // and unzips the dependency
-// func (o *Engine) downloadAndInstallDependencyIfNotExists(lockCoord *model.LockedCoord, extractToDir string) error {
 func (o *Engine) downloadAndInstallDependencyIfNotExists(lockCoord *model.LockedCoord) (string, error) {
-	// download if it does not exists
+	// download if it does not exist
 	var extractToDir string
 	var err error
 	var resolved bool
-	for _, resolver := range o.resolvers {
-		Debug.Printf("calling %v.DownloadResolvedCoord(%s)", resolver, lockCoord)
-		extractToDir, err, resolved = resolver.DownloadResolvedCoord(lockCoord)
+	for _, rslver := range o.resolvers {
+		Debug.Printf("calling %v.DownloadResolvedCoord(%s)", rslver, lockCoord)
+		extractToDir, err, resolved = rslver.DownloadResolvedCoord(lockCoord)
 		if err != nil {
 			return "", fmt.Errorf("download coord: %w", err)
 		}
@@ -446,37 +446,41 @@ func (o *Engine) downloadAndInstallDependencyIfNotExists(lockCoord *model.Locked
 		}
 	}
 
-	/*
-		err = o.extractDependency(lockCoord, file, extractToDir)
-		if err != nil {
-			return fmt.Errorf("unable to extract dependency: %w", err)
-		}
-	*/
-
 	lc, err := o.lockedConfigContentFromDir(extractToDir)
 	if err != nil {
 		return "", fmt.Errorf("load config content from dir: %w", err)
 	}
 
-	if err := lc.Triggers.RunInstallScript(lc); err != nil {
+	if err := o.runInstallScript(extractToDir, lc); err != nil {
 		return "", fmt.Errorf("install script: %w", err)
 	}
 
 	return extractToDir, nil
 }
-
-/*
-func (o *Engine) extractDependency(rcoord *model.LockedCoord, file string, extractToDir string) error {
-	var err error
-	ext := filepath.Ext(file)
-	if ext == ".zip" {
-		err = utils.Unzip(file, extractToDir)
-	} else if ext == ".tgz" {
-		err = utils.Untgz(file, extractToDir)
+func (o *Engine) runInstallScript(dir string, lc *model.LockedConfigContent) error {
+	//
+	if lc.Triggers.InstallScript == "" {
+		return nil
 	}
+
+	installScript := lc.Triggers.InstallScript
+	lc.Triggers.InstallScript = "" // to avoid running again
+
+	//
+	execCtx, err := o.ContextFromLockedConfig(dir, lc)
 	if err != nil {
 		return err
 	}
+
+	// parse
+	args, err := execCtx.Resolve().StrToArgs(installScript)
+	if err != nil {
+		return err
+	}
+
+	errno := o.Execute(execCtx, args)
+	if errno != 0 {
+		return fmt.Errorf("install script exited with %d errno", errno)
+	}
 	return nil
 }
-*/

@@ -91,3 +91,14 @@ func (o *ExecContext) ResolveAlias(args []string) []string {
 
 	return result
 }
+
+func (o *ExecContext) StrToArgs(str string) ([]string, error) {
+	e := o.Env()
+	args, err := shell.Fields(str, func(k string) string {
+		if v, ok := e[k]; ok {
+			return v
+		}
+		return fmt.Sprintf("$%s", k)
+	})
+	return args, err
+}

@@ -4,9 +4,6 @@
 package model
 
 import (
-	"fmt"
-
-	"github.com/bazurto/bz/lib/utils"
 	"github.com/hashicorp/hcl/v2"
 )
 
@@ -16,26 +13,8 @@ type Triggers struct {
 	Remain        hcl.Body `ion:"-" json:"-" hcl:",remain"`
 }
 
-func (o *Triggers) RunInstallScript(lcc *LockedConfigContent) error {
-	if o == nil {
-		return nil
-	}
-
-	if o.InstallScript == "" {
-		return nil
-	}
-
-	if exports, err := utils.RunScriptCode(o.InstallScript); err != nil {
-		return err
-	} else {
-		fmt.Println(exports)
-	}
-
-	return nil
-}
-
 // // RunPreRun modifies the context.  It modifies the path and env variables and returns them
-// // func (o *Triggers) RunPreRun(d *ResolvedDependency, path []string, env map[string]string) ([]string, map[string]string) {
+// // func (o *Triggers) RunPreRun(d *DependencyTree, path []string, env map[string]string) ([]string, map[string]string) {
 // func (o *Triggers) RunPreRun(ctx *ExecContext) {
 // 	if o == nil {
 // 		return

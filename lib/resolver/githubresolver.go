@@ -147,7 +147,11 @@ func (o *GithubResolver) DownloadResolvedCoord(lc *model.LockedCoord) (string, e
 			return "", err
 		}
 		defer readCloser.Close()
-		Info.Printf("Downloading file %s ...", file)
+		client.BaseURL.String()
+		Info.Printf("GET %s to %s",
+			fmt.Sprintf("%s/repos/%s/%s/releases/assets/%d", client.BaseURL.String(), lc.Owner, lc.Repo, asset.GetID()),
+			file,
+		)
 		if _, err := io.Copy(w, readCloser); err != nil {
 			return "", err
 		}
@@ -161,7 +165,7 @@ func (o *GithubResolver) DownloadResolvedCoord(lc *model.LockedCoord) (string, e
 	if err := os.Rename(downloadFileTmp, file); err != nil {
 		return "", err, false
 	} else {
-		Info.Printf("Downloading file %s DONE", file)
+		Info.Printf("...%s DONE", file)
 	}
 
 	err = o.extractDependency(lc, file, extractToDir)
@@ -245,7 +249,7 @@ func (o *GithubResolver) newGithubClient(server string) *github.Client {
 		return client
 	}
 
-	// github client
+	// GitHub client
 	ctx := context.Background()
 	githubAccessToken := o.appCtx.UserConfig.GetServerToken(server)
 	var tc *http.Client = nil
