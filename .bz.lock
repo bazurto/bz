@@ -4,7 +4,7 @@
       "server": "github.com",
       "owner": "bazurto",
       "repo": "groovy",
-      "version": "4.0.11"
+      "version": "4.0.21"
     },
     {
       "server": "github.com",
@@ -13,8 +13,5 @@
       "version": "3.11.1"
     }
   ],
-  "triggers": {
-    "installScript": "$DIR/install.php",
-    "preRunScript": "$DIR/prerun.php"
-  }
+  "triggers": {}
 }

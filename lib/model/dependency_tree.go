@@ -33,7 +33,7 @@ func (ed *DependencyTree) BinDirOrDefault() string {
 
 // Resolve returns a slice with bin dirs to be prepended to PATH os var
 // and a map with all environment variables to be added.  It resolves all
-// of these values recursively
+// of these values recursively.  The callback function can be null
 func (ed *DependencyTree) Resolve() *ExecContext {
 	// Sub
 	var subCtx []ExecContext
@@ -50,6 +50,7 @@ func (ed *DependencyTree) Resolve() *ExecContext {
 	ctx.SetPath([]string{
 		parseShellTpl(binDir, ctx.Env()),
 	})
+
 	return ctx
 }
 

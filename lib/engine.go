@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bazurto/bz/lib/luautils"
 	"github.com/bazurto/bz/lib/model"
 	"github.com/bazurto/bz/lib/resolver"
 	"github.com/bazurto/bz/lib/utils"
@@ -55,6 +56,7 @@ func (o *Engine) ExecuteWithIO(
 
 	// env vars
 	os.Setenv("BZ_PROJECT_DIR", execCtx.Dir) // also have to be set in lib/model/dependency_tree.go
+
 	ctx := execCtx.Resolve()
 
 	// Keep Original OS Path
@@ -457,6 +459,7 @@ func (o *Engine) downloadAndInstallDependencyIfNotExists(lockCoord *model.Locked
 
 	return extractToDir, nil
 }
+
 func (o *Engine) runInstallScript(dir string, lc *model.LockedConfigContent) error {
 	//
 	if lc.Triggers.InstallScript == "" {
@@ -467,20 +470,20 @@ func (o *Engine) runInstallScript(dir string, lc *model.LockedConfigContent) err
 	lc.Triggers.InstallScript = "" // to avoid running again
 
 	//
-	execCtx, err := o.ContextFromLockedConfig(dir, lc)
+	depCtx, err := o.ContextFromLockedConfig(dir, lc)
 	if err != nil {
 		return err
 	}
 
-	// parse
-	args, err := execCtx.Resolve().StrToArgs(installScript)
+	execCtx := depCtx.Resolve()
+	installScriptFinal, err := execCtx.Expand(installScript)
 	if err != nil {
 		return err
 	}
 
-	errno := o.Execute(execCtx, args)
-	if errno != 0 {
-		return fmt.Errorf("install script exited with %d errno", errno)
+	err = luautils.RunLuaInstallScript(installScriptFinal, execCtx, nil)
+	if err != nil {
+		return err
 	}
 	return nil
 }

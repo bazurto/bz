@@ -10,7 +10,7 @@ bz:
 	$(GO_BUILD) -gcflags "all=-N -l"
 
 install: bz
-	go install
+	go install -ldflags "-X main.buildInfo=revision:$(REVISION);"
 
 test:
 	go build -v ./...

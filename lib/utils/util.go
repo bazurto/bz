@@ -199,6 +199,65 @@ func Zip(srcDir string, writer io.Writer, include []string) error {
 	return nil
 }
 
+// ZipAll zips up files
+type ZipAllOpts struct {
+	Echo bool // echo name of all files been zipped up
+}
+
+func ZipAll(srcDir string, writer io.Writer, opts ZipAllOpts) error {
+	var err error
+	srcDir, err = filepath.Abs(srcDir) // clean path
+	if err != nil {
+		return fmt.Errorf("Zip() filepath.Abs: %w", err)
+	}
+
+	tw := zip.NewWriter(writer)
+	defer tw.Close()
+
+	err = RecurseDir(srcDir, func(fullFilename string, file *os.File) error {
+		filename := strings.Replace(fullFilename, srcDir, "", 1) // /path/to/srcDir/dir/file => /dir/file
+		filename = strings.TrimLeft(filename, "/")               // dir/file
+		filename = filepath.ToSlash(filename)                    // replace windows filenames to *nix filenames: dir\file => dir/file
+
+		if opts.Echo {
+			fmt.Printf("- %s\n", filename)
+		}
+
+		// Get FileInfo about our file providing file size, mode, etc.
+		info, err := file.Stat()
+		if err != nil {
+			return fmt.Errorf("file.Stat(%s): %w", fullFilename, err)
+		}
+
+		// Create a tar Header from the FileInfo data
+		header, err := zip.FileInfoHeader(info)
+		if err != nil {
+			return fmt.Errorf("zip.FileInfoHeader(%s): %w", fullFilename, err)
+		}
+		header.Name = filename
+
+		// Write file header to the tar archive
+		w, err := tw.CreateHeader(header)
+		if err != nil {
+			return fmt.Errorf("zip.CreateHeader(%s): %w", filename, err)
+		}
+
+		// Copy contents if it is regular file
+		if info.Mode().IsRegular() {
+			_, err = io.Copy(w, file)
+			if err != nil {
+				return fmt.Errorf("io.Copy(%s, %s): %w", filename, fullFilename, err)
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("Zip(): %w", err)
+	}
+	return nil
+}
+
 // RecurseDir loop throguh all files and directories recursively.  cb is called back
 // with the name and the open file
 func RecurseDir(absDir string, cb func(absName string, file *os.File) error) error {
@@ -503,7 +562,6 @@ func ToPropKey(k string) string {
 	k = strings.ReplaceAll(k, "/", ".")
 	return k
 }
-
 
 // jsonDecode decodes json and returns pointer of R type passed
 // e.g.1:
