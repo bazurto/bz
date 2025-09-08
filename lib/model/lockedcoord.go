@@ -59,9 +59,9 @@ func NewLockedCoord(
 	return result, nil
 }
 
-func NewLockedCoordLocalBlank() LockedCoord {
-	return LockedCoord{}
-}
+// func NewLockedCoordLocalBlank() LockedCoord {
+// 	return LockedCoord{}
+// }
 
 // func (o *LockedCoordBlank) Properties() map[string]string {
 // 	if o.props == nil {

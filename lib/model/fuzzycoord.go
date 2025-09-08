@@ -33,6 +33,12 @@ func NewCoordFromStr(depStrArg string) (FuzzyCoord, error) {
 		return result, err
 	}
 
+	// check deprecated use of @ instead of fragment
+	if path, fragment, ok := strings.Cut(u.Path, "@"); ok {
+		u.Path = path
+		u.Fragment = fragment
+	}
+
 	result.OriginalString = depStrArg
 	result.URL = *u
 	return result, nil

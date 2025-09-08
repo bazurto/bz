@@ -2,11 +2,18 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
 REVISION=$$(./.github/revision_get.sh)
-GO_BUILD=go build -ldflags "-X main.buildInfo=revision:$(REVISION);"
+GO_BUILD=go build -ldflags "-X main.buildInfo=revision:$(REVISION);" -trimpath
+GO_INSTALL=go install -ldflags "-X main.buildInfo=revision:$(REVISION);" -trimpath
 
 build: bz
 
-bz: .requirements
+bz:
+	$(GO_BUILD) -gcflags "all=-N -l"
+
+install: bz
+	$(GO_INSTALL)
+
+test: .requirements
 	go vet ./...
 	deadcode ./... | grep -v "unreachable func" | tee .deadcode.out
 	if [ -s .deadcode.out ]; then \
@@ -15,19 +22,17 @@ bz: .requirements
 		exit 1; \
 	fi
 	nilaway -include-pkgs="github.com/bazurto/bz" ./...
-	$(GO_BUILD) -gcflags "all=-N -l"
-
-install: bz
-	go install -ldflags "-X main.buildInfo=revision:$(REVISION);"
-
-test:
-	go build -v ./...
+	go vet -vettool $(shell which nilness) ./...
+	$(GO_BUILD) -v ./...
+	go test ./...
 
 .requirements:
 	go install golang.org/x/tools/cmd/deadcode@latest
 	echo "go install golang.org/x/tools/cmd/deadcode@latest" >> .requirements
 	go install go.uber.org/nilaway/cmd/nilaway@latest
 	echo "go install go.uber.org/nilaway/cmd/nilaway@latest" >> .requirements
+	go install golang.org/x/tools/go/analysis/passes/nilness/cmd/nilness@latest
+	echo "go install golang.org/x/tools/go/analysis/passes/nilness/cmd/nilness@latest" >> .requirements
 
 release: .revision.inc.txt bz-linux-amd64 bz-linux-arm64 bz-darwin-amd64 bz-darwin-arm64 bz-windows-amd64.exe
 	gh release create --generate-notes -t v$(REVISION) v$(REVISION)

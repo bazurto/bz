@@ -126,7 +126,10 @@ func (o *Engine) ContextFromLockedConfig(dir string, lcc *model.LockedConfigCont
 	//
 	Debug.Printf("read config: %v", lcc)
 	cdd := utils.NewCircularDependencyDetector()
-	c := model.NewLockedCoordLocalBlank()
+	c, err := model.NewLockedCoord("file", "", dir, model.NewVersion("0"), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	// resolve dependency
 	execCtx, err := o.resolvedDependencyFromConfigContext(dir, &c, lcc, cdd)
@@ -212,7 +215,10 @@ func (o *Engine) ContextFromConfigDir(dir string) (*model.DependencyTree, error)
 	//
 	Debug.Printf("read config: %v", lcc)
 	cdd := utils.NewCircularDependencyDetector()
-	c := model.NewLockedCoordLocalBlank()
+	c, err := model.NewLockedCoord("file", "", dir, model.NewVersion("0"), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	// resolve dependency
 	resolvedDependency, err := o.resolvedDependencyFromConfigContext(dir, &c, lcc, cdd)
@@ -378,7 +384,7 @@ func (o *Engine) lockedConfigFromFuzzyConfig(cc *model.FuzzyConfigContent) (*mod
 		//
 		var lockCoord *model.LockedCoord
 		for _, reslvr := range o.resolvers {
-			lockCoord, err := reslvr.ResolveCoord(fuzzyCoord)
+			lockCoord, err = reslvr.ResolveCoord(fuzzyCoord)
 			if err != nil {
 				return nil, fmt.Errorf("resolvedDependencyFromConfigContext: ResolveCoord: %w", err)
 			}

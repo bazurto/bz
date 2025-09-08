@@ -400,11 +400,7 @@ func Untgz(fileName, dir string) error {
 }
 
 func uncompressActualPath(dir, path string) (string, error) {
-	var err error
 	realName := filepath.Clean(filepath.Join(dir, filepath.FromSlash(path)))
-	if err != nil {
-		return "", fmt.Errorf("Uncompress: filepath.Abs() failed: %w", err)
-	}
 	if !strings.HasPrefix(realName, dir) {
 		return "", fmt.Errorf("Uncompress: path(%s) not contained within path(%s)", realName, dir)
 	}
@@ -568,24 +564,17 @@ func ToPropKey(k string) string {
 }
 
 // jsonDecode decodes json and returns pointer of R type passed
-// e.g.1:
+// e.g:
 //
-//	myTypePtr, err := jsonDecode(`{"fld1": "Val1"}`, MyType{})
-//
-// e.g.2:
-//
-//	mapPtr, err := jsonDecode(`{"fld1": "Val1"}`, make(map[string]string))
-//	m := *mapPtr
+//	m := make(map[string]string)
+//	err := jsonDecode(`{"fld1": "Val1"}`, &m)
 //	fmt.Println(m["fld1"])
 func JsonDecode[T string | []byte](b T, v any) error {
 	switch tmp := any(b).(type) {
 	case string:
-		//try(json.Unmarshal([]byte(tmp), &v))
-		err := json.Unmarshal([]byte(tmp), &v)
-		return err
+		return json.Unmarshal([]byte(tmp), v)
 	case []byte:
-		err := json.Unmarshal(tmp, &v)
-		return err
+		return json.Unmarshal(tmp, v)
 	}
 	return fmt.Errorf("Unknown type parameter")
 }

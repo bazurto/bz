@@ -12,7 +12,11 @@ import (
 
 func TestJsonDecode(t *testing.T) {
 	m := make(map[string]string)
-	err := utils.JsonDecode(`{"a":"b"}`, m)
+	err := utils.JsonDecode(`{"a":"b"}`, &m)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(m))
 	assert.Equal(t, "b", m["a"])
