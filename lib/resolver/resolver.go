@@ -13,12 +13,14 @@ import (
 
 type Resolver interface {
 	// Resolves a fuzzy coord to a hard resolved coord
-	ResolveCoord(c *model.FuzzyCoord) (*model.LockedCoord, error)
+	//ResolveCoord(c *model.FuzzyCoord) (*model.LockedCoord, error)
+	ResolveCoord(model.FuzzyCoord) (*model.LockedCoord, error)
 	// Download coord pointed by c into file
-	DownloadResolvedCoord(c *model.LockedCoord) (string, error, bool)
+	DownloadResolvedCoord(c model.LockedCoord) (string, error, bool)
 }
 
-func possibleAssetNames(c *model.LockedCoord) []BzAsset {
+// func possibleAssetNames(c *model.LockedCoord) []BzAsset {
+func possibleAssetNames(pkgName string, version model.Version) []BzAsset {
 	osArch := fmt.Sprintf("%s-%s", runtime.GOOS, runtime.GOARCH)
 
 	extensions := []string{"zip", "tgz", "tar.gz"} // possible extensions
@@ -26,9 +28,9 @@ func possibleAssetNames(c *model.LockedCoord) []BzAsset {
 	var res []BzAsset
 	for _, ext := range extensions {
 		res = append(res,
-			BzAsset{Canonical: fmt.Sprintf("%s-%s-v%s", c.Repo, osArch, c.Version.Canonical()), Ext: ext}, // openjdk-linux-amd64-v1.2.3.zip
-			BzAsset{Canonical: fmt.Sprintf("%s-v%s", c.Repo, c.Version.Canonical()), Ext: ext},            // openjdk-v1.2.3.zip
-			BzAsset{Canonical: c.Repo, Ext: ext},                                                          // openjdk.zip
+			BzAsset{Canonical: fmt.Sprintf("%s-%s-v%s", pkgName, osArch, version.Canonical()), Ext: ext}, // openjdk-linux-amd64-v1.2.3.zip
+			BzAsset{Canonical: fmt.Sprintf("%s-v%s", pkgName, version.Canonical()), Ext: ext},            // openjdk-v1.2.3.zip
+			BzAsset{Canonical: pkgName, Ext: ext},                                                        // openjdk.zip
 		)
 	}
 	return res

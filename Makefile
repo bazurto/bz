@@ -6,7 +6,15 @@ GO_BUILD=go build -ldflags "-X main.buildInfo=revision:$(REVISION);"
 
 build: bz
 
-bz:
+bz: .requirements
+	go vet ./...
+	deadcode ./... | grep -v "unreachable func" | tee .deadcode.out
+	if [ -s .deadcode.out ]; then \
+		echo "Dead code found" \
+		rm -f .deadcode.out \
+		exit 1; \
+	fi
+	nilaway -include-pkgs="github.com/bazurto/bz" ./...
 	$(GO_BUILD) -gcflags "all=-N -l"
 
 install: bz
@@ -14,7 +22,13 @@ install: bz
 
 test:
 	go build -v ./...
- 
+
+.requirements:
+	go install golang.org/x/tools/cmd/deadcode@latest
+	echo "go install golang.org/x/tools/cmd/deadcode@latest" >> .requirements
+	go install go.uber.org/nilaway/cmd/nilaway@latest
+	echo "go install go.uber.org/nilaway/cmd/nilaway@latest" >> .requirements
+
 release: .revision.inc.txt bz-linux-amd64 bz-linux-arm64 bz-darwin-amd64 bz-darwin-arm64 bz-windows-amd64.exe
 	gh release create --generate-notes -t v$(REVISION) v$(REVISION)
 	gh release upload v$(REVISION) bz-linux-amd64
@@ -48,6 +62,8 @@ clean:
 	rm -f bz-darwin-arm64
 	rm -f bz-windows-amd64.exe
 	rm -f .revision.inc.txt
+	rm -f .requirements
+	rm -f .deadcode.out
 
 
 .PHONY: clean bz install dist

@@ -4,8 +4,6 @@
 package resolver
 
 import (
-	"strings"
-
 	"github.com/bazurto/bz/lib/model"
 	"github.com/bazurto/bz/lib/utils"
 )
@@ -25,28 +23,22 @@ func (o *LocalDevResolver) String() string {
 	return "LocalDevResolver{}"
 }
 
-func (o *LocalDevResolver) ResolveCoord(c *model.FuzzyCoord) (*model.LockedCoord, error) {
-	Debug.Printf("Start LocalDevResolver.ResolveCoord(%s)", c)
+func (o *LocalDevResolver) ResolveCoord(c model.FuzzyCoord) (*model.LockedCoord, error) {
+	Debug.Printf("Start LocalDevResolver.ResolveCoord(%s)", c.String())
 
-	if c.Server != "local.local" && c.Server != "local" {
+	if c.URL.Scheme != "file" {
 		return nil, nil
 	}
 
-	depString := strings.TrimPrefix(c.OriginalString, "local.local")
-	depString = strings.TrimPrefix(depString, "local")
-
 	return &model.LockedCoord{
-		Server:  c.Server,
-		Owner:   c.Owner,
-		Repo:    depString,
-		Version: model.NewVersion(c.Version),
+		URL: c.URL,
 	}, nil
 }
 
-func (o *LocalDevResolver) DownloadResolvedCoord(lc *model.LockedCoord) (string, error, bool) {
-	if lc.Server != "local.local" && lc.Server != "local" {
+func (o *LocalDevResolver) DownloadResolvedCoord(lc model.LockedCoord) (string, error, bool) {
+	if lc.URL.Scheme != "file" {
 		return "", nil, false
 	}
 
-	return lc.Repo, nil, true
+	return lc.URL.Path, nil, true
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/bazurto/bz/lib/utils"
 	"mvdan.cc/sh/shell"
@@ -114,19 +115,31 @@ func calculateImplicitDirEnvironmentVars(ea DependencyTree, env map[string]strin
 	c := ea.Coord
 	m := make(map[string]string)
 
+	host := c.URL.Hostname()
+	path := strings.Trim(c.URL.Path, "/") // remove leading slacshes to avoid creating variables with two underscores
+	version := fmt.Sprintf("V%s", c.URL.Fragment)
+	if version == "V" {
+		version = "V0"
+	}
 	nameSpaceVarPrefixes := []string{
 		// GITHUB_COM_BAZURTO_GROOVY_V1.2.3
-		utils.ToEnvKey(fmt.Sprintf("%s_%s_%s_%s", c.Server, c.Owner, c.Repo, c.Version.Canonical())),
+		utils.ToEnvKey(fmt.Sprintf("%s_%s_%s", host, path, version)),
 		// GITHUB_COM_BAZURTO_GROOVY
-		utils.ToEnvKey(fmt.Sprintf("%s_%s_%s", c.Server, c.Owner, c.Repo)),
+		utils.ToEnvKey(fmt.Sprintf("%s_%s", host, path)),
 		// BAZURTO_GROOVY_V1.2.3
-		utils.ToEnvKey(fmt.Sprintf("%s_%s_%s", c.Owner, c.Repo, c.Version.Canonical())),
+		utils.ToEnvKey(fmt.Sprintf("%s_%s", path, version)),
+
+		// BAZURTO_GROOVY_V1.2.3
+		utils.ToEnvKey(fmt.Sprintf("%s_%s", path, version)),
+
 		// BAZURTO_GROOVY
-		utils.ToEnvKey(fmt.Sprintf("%s_%s", c.Owner, c.Repo)),
-		// GROOVY_V1.2.3
-		utils.ToEnvKey(fmt.Sprintf("%s_%s", c.Repo, c.Version.Canonical())),
-		// GROOVY
-		utils.ToEnvKey(c.Repo),
+		utils.ToEnvKey(path),
+
+		// // GROOVY
+		// utils.ToEnvKey(c.Repo),
+
+		// // GROOVY_V1.2.3
+		// utils.ToEnvKey(fmt.Sprintf("%s_%s", c.Repo, c.Version.Canonical())),
 	}
 
 	// github.com/bazurto/groovy-v1.2.3 =>  {

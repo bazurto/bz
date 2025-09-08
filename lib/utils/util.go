@@ -460,6 +460,10 @@ func HclLoad(f string, cfg any) error {
 		return fmt.Errorf("Unable to parse HCL file %s: %w", f, diags)
 	}
 
+	if file == nil || file.Body == nil {
+		return fmt.Errorf("Unable to parse HCL file %s: returned body is nil", f)
+	}
+
 	diags = gohcl.DecodeBody(file.Body, ctx, cfg)
 	if diags.HasErrors() {
 		return fmt.Errorf("Unable to decode HCL file %s: %s", f, diags.Error())

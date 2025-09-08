@@ -45,7 +45,7 @@ func main() {
 	// Generate Execution Context from root directory
 	execCtx, err := engine.ContextFromConfigDir(projectLocation.Root) // resolves and downloads
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
 

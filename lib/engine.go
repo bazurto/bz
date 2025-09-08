@@ -159,6 +159,9 @@ func (o *Engine) ContextFromConfigDir(dir string) (*model.DependencyTree, error)
 	if os.IsNotExist(err) {
 		lockConfigFound = false
 	} else {
+		if lockConfigStat == nil {
+			return nil, fmt.Errorf("this should not happen, ContextFromConfigDir could not stat file %s", lockConfigFileName)
+		}
 		lockConfigModTime = lockConfigStat.ModTime()
 	}
 
@@ -370,13 +373,12 @@ func (o *Engine) lockedConfigFromFuzzyConfig(cc *model.FuzzyConfigContent) (*mod
 		fuzzyCoord, err := model.NewCoordFromStr(dep)
 		if err != nil {
 			return nil, err
-
 		}
 
 		//
 		var lockCoord *model.LockedCoord
 		for _, reslvr := range o.resolvers {
-			lockCoord, err = reslvr.ResolveCoord(fuzzyCoord)
+			lockCoord, err := reslvr.ResolveCoord(fuzzyCoord)
 			if err != nil {
 				return nil, fmt.Errorf("resolvedDependencyFromConfigContext: ResolveCoord: %w", err)
 			}
@@ -385,7 +387,7 @@ func (o *Engine) lockedConfigFromFuzzyConfig(cc *model.FuzzyConfigContent) (*mod
 			}
 		}
 		if lockCoord == nil {
-			return nil, fmt.Errorf("no resolver for `%s`", fuzzyCoord)
+			return nil, fmt.Errorf("no resolver for dependency `%s`", dep)
 		}
 
 		lockedCoords = append(lockedCoords, lockCoord)
@@ -439,7 +441,7 @@ func (o *Engine) downloadAndInstallDependencyIfNotExists(lockCoord *model.Locked
 	var resolved bool
 	for _, rslver := range o.resolvers {
 		Debug.Printf("calling %v.DownloadResolvedCoord(%s)", rslver, lockCoord)
-		extractToDir, err, resolved = rslver.DownloadResolvedCoord(lockCoord)
+		extractToDir, err, resolved = rslver.DownloadResolvedCoord(*lockCoord)
 		if err != nil {
 			return "", fmt.Errorf("download coord: %w", err)
 		}
@@ -450,7 +452,7 @@ func (o *Engine) downloadAndInstallDependencyIfNotExists(lockCoord *model.Locked
 
 	lc, err := o.lockedConfigContentFromDir(extractToDir)
 	if err != nil {
-		return "", fmt.Errorf("load config content from dir: %w", err)
+		return "", fmt.Errorf("error loading dependency `%s`: %w", lockCoord.String(), err)
 	}
 
 	if err := o.runInstallScript(extractToDir, lc); err != nil {
