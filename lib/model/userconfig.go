@@ -58,7 +58,7 @@ func NewUserConfigFromFile(f string) (*UserConfig, error) {
 func (o *UserConfig) GetServerToken(serverName string) string {
 	var token string
 	for _, server := range o.Servers {
-		if strings.ToLower(server.Name) == strings.ToLower(serverName) {
+		if strings.EqualFold(server.Name, serverName) {
 			token = server.Token
 		}
 	}

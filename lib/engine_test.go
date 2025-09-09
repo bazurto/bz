@@ -3,11 +3,12 @@ package lib
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"testing"
+
 	"github.com/bazurto/bz/lib/model"
 	"github.com/bazurto/bz/lib/resolver"
 	"github.com/stretchr/testify/assert"
-	"os"
-	"testing"
 )
 
 func TestExecutionContext(t *testing.T) {
@@ -44,12 +45,11 @@ func TestExecutionContext(t *testing.T) {
 	assert.Contains(t, result, "#BAZURTO_PYTHON_3_11_1_DIR=")
 	assert.Contains(t, result, "#BAZURTO_PYTHON_3_11_1_DIR=")
 	assert.Contains(t, result, "#PYTHON_3_11_1_DIR=")
+	assert.Contains(t, result, "#BAZURTO_PYTHON_DIR=")
 	assert.Contains(t, result, "#PYTHON_DIR=")
 
 	assert.Regexp(t, "#BAZURTO_PYTHON_3_11_1_BINDIR=.*extracted[\\\\/]bin\\$", result)
 	assert.Regexp(t, "#BAZURTO_PYTHON_3_11_1_DIR=.*extracted\\$", result)
 
 	assert.Contains(t, result, fmt.Sprintf("#BZ_PROJECT_DIR=%s$", tmpDir))
-
-	fmt.Println(result)
 }

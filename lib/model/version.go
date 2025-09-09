@@ -22,7 +22,7 @@ type Version struct {
 	original string
 }
 
-func (o Version) MarshalJSON() ([]byte, error) {
+func (o *Version) MarshalJSON() ([]byte, error) {
 	// ion.Marshaler
 	var strNums []string
 	for _, n := range o.nums {
@@ -43,7 +43,7 @@ func (o Version) MarshalJSON() ([]byte, error) {
 	return json.Marshal(str)
 }
 
-func (o Version) MarshalIon(w ion.Writer) error {
+func (o *Version) MarshalIon(w ion.Writer) error {
 	// ion.Marshaler
 	var strNums []string
 	for _, n := range o.nums {
@@ -64,7 +64,7 @@ func (o Version) MarshalIon(w ion.Writer) error {
 	return ion.MarshalTo(w, str)
 }
 
-func (o Version) UnmarshalJSON(data []byte) error {
+func (o *Version) UnmarshalJSON(data []byte) error {
 	var tmp string
 	if err := json.Unmarshal(data, &tmp); err != nil {
 		return err
@@ -76,7 +76,7 @@ func (o Version) UnmarshalJSON(data []byte) error {
 	o.original = v.original
 	return nil
 }
-func (o Version) UnmarshalIon(r ion.Reader) error {
+func (o *Version) UnmarshalIon(r ion.Reader) error {
 	var tmp string
 	if err := ion.UnmarshalFrom(r, &tmp); err != nil {
 		return err
@@ -89,7 +89,7 @@ func (o Version) UnmarshalIon(r ion.Reader) error {
 	return nil
 }
 
-func (o Version) Canonical() string {
+func (o *Version) Canonical() string {
 	var buf bytes.Buffer
 
 	var nums []string
@@ -105,11 +105,11 @@ func (o Version) Canonical() string {
 	return buf.String()
 }
 
-func (o Version) Original() string {
+func (o *Version) Original() string {
 	return o.original
 }
 
-func (o Version) String() string {
+func (o *Version) String() string {
 	if o.meta != "" {
 		return fmt.Sprintf("%s+%s", o.Canonical(), o.meta)
 	}
@@ -153,7 +153,7 @@ func NewVersion(s string) Version {
 	}
 }
 
-func (o Version) Compare(v Version) int {
+func (o *Version) Compare(v Version) int {
 	r := compareNumArr(0, o.nums, v.nums)
 	if r != 0 {
 		return r

@@ -563,7 +563,7 @@ func ToPropKey(k string) string {
 	return k
 }
 
-// jsonDecode decodes json and returns pointer of R type passed
+// JsonDecode decodes json and returns pointer of R type passed
 // e.g:
 //
 //	m := make(map[string]string)
@@ -577,4 +577,45 @@ func JsonDecode[T string | []byte](b T, v any) error {
 		return json.Unmarshal(tmp, v)
 	}
 	return fmt.Errorf("Unknown type parameter")
+}
+
+// JsonConvert converts one object into another using json
+//
+// e.g:
+//
+//	 type MyStruct struct {
+//			Fld1 string
+//			Fld2 string
+//		}
+//
+//		m := make(map[string]string)
+//	 m["Fld1"] = "Val1"
+//	 m["Fld2"] = "Val2"
+//
+//	 m2 := MyStruct{}
+//
+//		err := JsonConvert(&m, &m2)
+//	 fmt.Println(m2.Fld1) // Val1
+//	 fmt.Println(m2.Fld2) // Val2
+func JsonConvert(src any, target any) error {
+	b, err := json.Marshal(src)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, target)
+}
+
+// AnyToString takes any value and converts it to a string.
+//
+// If the value is already a string or a []byte, it is returned as is.
+// Otherwise, the value is converted to a string using fmt.Sprintf("%v", v).
+func AnyToString(v any) string {
+	switch v.(type) {
+	case string:
+		return v.(string)
+	case []byte:
+		return string(v.([]byte))
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }

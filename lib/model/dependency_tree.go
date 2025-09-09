@@ -111,40 +111,45 @@ func (ed *DependencyTree) resolveLocalEnvVars(subCtx []ExecContext) *ExecContext
 	return ctx
 }
 
-func calculateImplicitDirEnvironmentVars(ea DependencyTree, env map[string]string) map[string]string {
-	c := ea.Coord
+func calculateImplicitDirEnvironmentVars(dt DependencyTree, env map[string]string) map[string]string {
+	c := dt.Coord
 	m := make(map[string]string)
 
 	host := c.URL.Hostname()
 	path := strings.Trim(c.URL.Path, "/") // remove leading slacshes to avoid creating variables with two underscores
-	version := fmt.Sprintf("V%s", c.URL.Fragment)
-	if version == "V" {
-		version = "V0"
+	version := c.URL.Fragment
+	if version == "" {
+		version = "0"
 	}
-	nameSpaceVarPrefixes := []string{
-		// GITHUB_COM_BAZURTO_GROOVY_V1.2.3
-		utils.ToEnvKey(fmt.Sprintf("%s_%s_%s", host, path, version)),
-		// GITHUB_COM_BAZURTO_GROOVY
-		utils.ToEnvKey(fmt.Sprintf("%s_%s", host, path)),
-		// BAZURTO_GROOVY_V1.2.3
-		utils.ToEnvKey(fmt.Sprintf("%s_%s", path, version)),
 
-		// BAZURTO_GROOVY_V1.2.3
-		utils.ToEnvKey(fmt.Sprintf("%s_%s", path, version)),
+	var nameSpaceVarPrefixes []string
+	// GITHUB_COM_BAZURTO_GROOVY_1_2_3
+	if host != "" { // host is empty for file:///
+		nameSpaceVarPrefixes = append(nameSpaceVarPrefixes, utils.ToEnvKey(fmt.Sprintf("%s_%s_%s", host, path, version)))
+	}
+	// GITHUB_COM_BAZURTO_GROOVY
+	if host != "" {
+		nameSpaceVarPrefixes = append(nameSpaceVarPrefixes, utils.ToEnvKey(fmt.Sprintf("%s_%s", host, path)))
+	}
 
-		// BAZURTO_GROOVY
-		utils.ToEnvKey(path),
+	// file:///home/user/myproject
+	//	- USER_PROJECT
+	// github.com/bazurto/groovy-v1.2.3
+	//	- BAZURTO_GROOVY_1_2_3
+	//  - GROOVY_1_2_3
+	//  - BAZURTO_GROOVY
+	//  - GROOVY
+	lastTwoPathParts := strings.Split(path, "/")
+	if len(lastTwoPathParts) >= 2 {
+		lastTwoPathParts = lastTwoPathParts[len(lastTwoPathParts)-2:]
+	}
 
-		// // GROOVY
-		// utils.ToEnvKey(c.Repo),
-
-		// // GROOVY_V1.2.3
-		// utils.ToEnvKey(fmt.Sprintf("%s_%s", c.Repo, c.Version.Canonical())),
+	for tmp := lastTwoPathParts; len(tmp) > 0; tmp = tmp[1:] {
+		nameSpaceVarPrefixes = append(nameSpaceVarPrefixes, utils.ToEnvKey(fmt.Sprintf("%s_%s", strings.Join(tmp, "_"), version)))
+		nameSpaceVarPrefixes = append(nameSpaceVarPrefixes, utils.ToEnvKey(strings.Join(tmp, "_")))
 	}
 
 	// github.com/bazurto/groovy-v1.2.3 =>  {
-	//  "GITHUB_COM_BAZURTO_GROOVY_V1.2.3_DIR" : "/path/to/dir/extracted",
-	//  "GITHUB_COM_BAZURTO_GROOVY_V1.2.3_BINDIR" : "/path/to/dir/extracted/bin",
 	//  "GITHUB_COM_BAZURTO_GROOVY_1_2_3_DIR" : "/path/to/dir/extracted",
 	//  "GITHUB_COM_BAZURTO_GROOVY_1_2_3_BINDIR" : "/path/to/dir/extracted/bin",
 	//  "GITHUB_COM_BAZURTO_GROOVY_DIR" : "/path/to/dir/extracted",

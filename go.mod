@@ -8,6 +8,7 @@ require (
 	github.com/google/go-github/v47 v47.0.0
 	github.com/hashicorp/hcl/v2 v2.14.0
 	github.com/robertkrimen/otto v0.2.1
+	github.com/spf13/cast v1.10.0
 	github.com/stretchr/testify v1.8.1
 	github.com/vbauerster/mpb/v8 v8.1.4
 	github.com/vibrantbyte/go-antpath v1.1.1
@@ -36,6 +37,7 @@ require (
 	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/term v0.34.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
+	golang.org/x/tools v0.36.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/sourcemap.v1 v1.0.5 // indirect
