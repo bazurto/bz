@@ -1,0 +1,3 @@
+go install golang.org/x/tools/cmd/deadcode@latest
+go install go.uber.org/nilaway/cmd/nilaway@latest
+go install golang.org/x/tools/go/analysis/passes/nilness/cmd/nilness@latest
