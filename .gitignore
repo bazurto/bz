@@ -3,3 +3,10 @@
 
 # Ignore Gradle build output directory
 build
+
+# Go build artifacts
+bz
+bz-*
+.requirements
+.deadcode.out
+.revision.inc.txt
