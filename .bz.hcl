@@ -2,8 +2,9 @@
 deps = [
         "github.com/bazurto/groovy",
         "github.com/bazurto/python#3",
-        "file:///home/ricardo/workspace/bazurto/bazurto-tools",
+        //"file:///home/ricardo/workspace/bazurto/bazurto-tools",
         //"github.com/bazurto/dummy-install-script#1",
+        "file:///home/ricardo/workspace/bazurto/tools",
 ]
 
 # triggers  {

@@ -70,13 +70,13 @@ func (o *Engine) ExecuteWithIO(
 		os.Setenv(k, v)
 	}
 
-	//originalOsPathParts := strings.Split(originalPathPathStr, string([]rune{os.PathListSeparator})) // ["/usr/local/bin", "/usr/bin"]
-	//ctx.SetPath(append(ctx.Path(), originalOsPathParts...))
-	// Restore OS path
+	// Compose final PATH: prepend dependency bin dirs (set by ctx.Env()) to the original PATH.
+	// Note: ctx.Env() does NOT include the original PATH, so this avoids duplication.
+	// This ensures dependency binaries are found first, but user's original PATH is still available.
 	os.Setenv(
 		"PATH",
 		strings.Join(
-			[]string{os.Getenv("PATH") + originalPathPathStr},
+			[]string{os.Getenv("PATH"), originalPathPathStr},
 			string([]rune{os.PathListSeparator}),
 		),
 	)
