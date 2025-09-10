@@ -27,14 +27,16 @@ func RunLuaInstallScript(file string, execCtx *model.ExecContext, cb func(retval
 		return err
 	}
 
-	ret := l.Get(-1) // L.Get(-1) is the return from the file
-	if ret.Type() != lua.LTTable {
-		return fmt.Errorf("lua script did not return a table")
-	}
-
 	if cb != nil {
-		luaTbl := ret.(*lua.LTable)
-		cb(luaTbl, luaEnv)
+		ret := l.Get(-1) // L.Get(-1) is the return from the file
+		if ret.Type() != lua.LTTable {
+			return fmt.Errorf("%s script must return a table. e.g.: return {env={...}}", file)
+		}
+
+		if cb != nil {
+			luaTbl := ret.(*lua.LTable)
+			cb(luaTbl, luaEnv)
+		}
 	}
 	return nil
 }
