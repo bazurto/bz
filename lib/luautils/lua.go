@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/bazurto/bz/lib/model"
 	"github.com/bazurto/bz/lib/utils"
 
 	lua "github.com/yuin/gopher-lua"
@@ -16,10 +15,9 @@ import (
 // RunLuaInstallScript takes a lua file as argument `file` and and execution environment `execCtx` to use
 // to be passed as environment variable for the script.  It will call `cb` and apss the lua return table
 // and the modified environment variables that were originally passed to the script
-func RunLuaInstallScript(file string, execCtx *model.ExecContext, cb func(retval *lua.LTable, env map[string]string)) error {
-	luaEnv := execCtx.Env()
+func RunLuaInstallScript(file string, env map[string]string, cb func(retval *lua.LTable)) error {
 
-	l := newBzLuaState(luaEnv) // the lua env will be modified if the script calls os.setenv
+	l := newBzLuaState(env) // the lua env will be modified if the script calls os.setenv
 	defer l.Close()
 
 	// Load and run the Lua config file
@@ -33,7 +31,7 @@ func RunLuaInstallScript(file string, execCtx *model.ExecContext, cb func(retval
 			return fmt.Errorf("%s script must return a table. e.g.: return {env={...}}", file)
 		}
 		luaTbl := ret.(*lua.LTable)
-		cb(luaTbl, luaEnv)
+		cb(luaTbl)
 	}
 	return nil
 }

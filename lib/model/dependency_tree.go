@@ -9,7 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/bazurto/bz/lib/luautils"
 	"github.com/bazurto/bz/lib/utils"
+	lua "github.com/yuin/gopher-lua"
 	"mvdan.cc/sh/shell"
 )
 
@@ -35,15 +37,21 @@ func (ed *DependencyTree) BinDirOrDefault() string {
 // Resolve returns a slice with bin dirs to be prepended to PATH os var
 // and a map with all environment variables to be added.  It resolves all
 // of these values recursively.  The callback function can be null
-func (ed *DependencyTree) Resolve() *ExecContext {
+func (ed *DependencyTree) Resolve() (*ExecContext, error) {
 	// Sub
 	var subCtx []ExecContext
 	for _, sub := range ed.Sub {
-		tmp := sub.Resolve()
+		tmp, err := sub.Resolve()
+		if err != nil {
+			return nil, err
+		}
 		subCtx = append(subCtx, *tmp)
 	}
 	// Local
-	ctx := ed.resolveLocalEnvVars(subCtx)
+	ctx, err := ed.resolveLocalEnvVars(subCtx)
+	if err != nil {
+		return nil, err
+	}
 
 	// binDir
 	binDir := ed.BinDirOrDefault()
@@ -52,12 +60,12 @@ func (ed *DependencyTree) Resolve() *ExecContext {
 		parseShellTpl(binDir, ctx.Env()),
 	})
 
-	return ctx
+	return ctx, nil
 }
 
 // resolveLocalEnvVars returns map with implicit variables and exported ones
 // for only this extracted dependecy
-func (ed *DependencyTree) resolveLocalEnvVars(subCtx []ExecContext) *ExecContext {
+func (ed *DependencyTree) resolveLocalEnvVars(subCtx []ExecContext) (*ExecContext, error) {
 	ctx := &ExecContext{}
 	env := make(map[string]string)
 	env["DIR"] = ed.Dir // DIR
@@ -82,6 +90,42 @@ func (ed *DependencyTree) resolveLocalEnvVars(subCtx []ExecContext) *ExecContext
 
 	ctx.Alias = ed.Alias
 	ctx.Sub = subCtx
+
+	// Override variables with Lua
+	if ed.Triggers.PreRunScript != "" {
+		if err := luautils.RunLuaInstallScript(ed.Triggers.PreRunScript, &ctx, func(retval *lua.LTable) {
+			//
+			v := retval.RawGetString("env")
+			if t, ok := v.(*lua.LTable); ok {
+				t.ForEach(func(l1, l2 lua.LValue) {
+					ctx.Set(l1.String(), l2.String())
+				})
+			}
+
+			//
+			v = retval.RawGetString("alias")
+			if t, ok := v.(*lua.LTable); ok {
+				t.ForEach(func(l1, l2 lua.LValue) {
+					ctx.Alias[l1.String()] = l2.String()
+				})
+			}
+
+			//
+			v = retval.RawGetString("path")
+			if t, ok := v.(*lua.LTable); ok {
+				var path []string
+				t.ForEach(func(l1, l2 lua.LValue) {
+					path = append(path, l2.String())
+				})
+				ctx.SetPath(path)
+			} else if t, ok := v.(*lua.LString); ok {
+				ctx.SetPath([]string{t.String()})
+			}
+
+		}); err != nil {
+			return nil, err
+		}
+	}
 
 	// execute preRun
 	//TODO: preRun
@@ -108,7 +152,7 @@ func (ed *DependencyTree) resolveLocalEnvVars(subCtx []ExecContext) *ExecContext
 	// 	//ctx = newCtx
 	// }
 
-	return ctx
+	return ctx, nil
 }
 
 func calculateImplicitDirEnvironmentVars(dt DependencyTree, env map[string]string) map[string]string {
