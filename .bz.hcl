@@ -4,7 +4,7 @@ deps = [
         "github.com/bazurto/python#3",
         //"file:///home/ricardo/workspace/bazurto/bazurto-tools",
         //"github.com/bazurto/dummy-install-script#1",
-        "file:///home/ricardo/workspace/bazurto/tools",
+        "file:///home/riramire/workspace/bazurto/bazurto-tools",
 ]
 
 # triggers  {

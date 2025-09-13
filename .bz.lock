@@ -1,3 +1,50 @@
 {
-    
+  "deps": [
+    {
+      "URL": {
+        "Scheme": "https",
+        "Opaque": "",
+        "User": null,
+        "Host": "github.com",
+        "Path": "/bazurto/groovy",
+        "RawPath": "",
+        "OmitHost": false,
+        "ForceQuery": false,
+        "RawQuery": "",
+        "Fragment": "4.0.21",
+        "RawFragment": ""
+      }
+    },
+    {
+      "URL": {
+        "Scheme": "https",
+        "Opaque": "",
+        "User": null,
+        "Host": "github.com",
+        "Path": "/bazurto/python",
+        "RawPath": "",
+        "OmitHost": false,
+        "ForceQuery": false,
+        "RawQuery": "",
+        "Fragment": "3.11.1",
+        "RawFragment": ""
+      }
+    },
+    {
+      "URL": {
+        "Scheme": "file",
+        "Opaque": "",
+        "User": null,
+        "Host": "",
+        "Path": "/home/riramire/workspace/bazurto/bazurto-tools",
+        "RawPath": "",
+        "OmitHost": false,
+        "ForceQuery": false,
+        "RawQuery": "",
+        "Fragment": "",
+        "RawFragment": ""
+      }
+    }
+  ],
+  "triggers": {}
 }

@@ -5,8 +5,10 @@ package model
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/bazurto/bz/lib/luautils"
@@ -47,6 +49,7 @@ func (ed *DependencyTree) Resolve() (*ExecContext, error) {
 		}
 		subCtx = append(subCtx, *tmp)
 	}
+
 	// Local
 	ctx, err := ed.resolveLocalEnvVars(subCtx)
 	if err != nil {
@@ -71,6 +74,8 @@ func (ed *DependencyTree) resolveLocalEnvVars(subCtx []ExecContext) (*ExecContex
 	env["DIR"] = ed.Dir // DIR
 	env["CURDIR"] = utils.GetCurrentDir()
 	env["BZ_PROJECT_DIR"] = os.Getenv("BZ_PROJECT_DIR")
+	env["GOOS"] = runtime.GOOS
+	env["GOARCH"] = runtime.GOARCH
 	env = utils.MapMerge(ctx.Env(), env)
 	//
 	for k, v := range ed.Exports {
@@ -93,7 +98,14 @@ func (ed *DependencyTree) resolveLocalEnvVars(subCtx []ExecContext) (*ExecContex
 
 	// Override variables with Lua
 	if ed.Triggers.PreRunScript != "" {
-		if err := luautils.RunLuaInstallScript(ed.Triggers.PreRunScript, &ctx, func(retval *lua.LTable) {
+		preRunScriptFinal, err := ctx.Expand(ed.Triggers.PreRunScript) // parses variables $DIR/script.lua
+		if err != nil {
+			return nil, err
+		}
+
+		env := utils.OsEnvironment() // os.Environ
+		maps.Copy(env, ctx.Env())    // copy dependency environment to pass to lua
+		if err := luautils.RunLuaScript(preRunScriptFinal, env, func(retval *lua.LTable) {
 			//
 			v := retval.RawGetString("env")
 			if t, ok := v.(*lua.LTable); ok {
@@ -126,31 +138,6 @@ func (ed *DependencyTree) resolveLocalEnvVars(subCtx []ExecContext) (*ExecContex
 			return nil, err
 		}
 	}
-
-	// execute preRun
-	//TODO: preRun
-	// if ed.Triggers.PreRunScript != "" {
-	// 	b, err := json.Marshal(ctx)
-	// 	if err != nil {
-	// 		return ctx
-	// 	}
-	// 	fmt.Println(string(b))
-	// 	in := bytes.NewBuffer(b)
-	// 	out := bytes.NewBuffer(nil)
-	// 	exec.ExecCommandStr(
-	// 		ctx,
-	// 		ed.Triggers.PreRunScript,
-	// 		out,
-	// 		os.Stderr,
-	// 		in,
-	// 	)
-	// 	var newCtx *ExecContext
-	// 	if err := json.Unmarshal(out.Bytes(), newCtx); err != nil {
-	// 		return ctx
-	// 	}
-	// 	fmt.Println(string(out.Bytes()))
-	// 	//ctx = newCtx
-	// }
 
 	return ctx, nil
 }

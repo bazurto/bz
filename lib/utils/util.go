@@ -619,3 +619,19 @@ func AnyToString(v any) string {
 		return fmt.Sprintf("%v", v)
 	}
 }
+
+// OsEnvironment return the os.Environ() as a map of strings.
+//
+// the returned map can be safely modified without affecting
+// the original environment variables
+func OsEnvironment() map[string]string {
+	m := make(map[string]string)
+	for _, envLine := range os.Environ() {
+		if k, v, ok := strings.Cut(envLine, "="); ok {
+			m[k] = v // KEY=VAR
+		} else {
+			m[k] = "" // KEY
+		}
+	}
+	return m
+}

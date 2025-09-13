@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -57,7 +58,11 @@ func (o *Engine) ExecuteWithIO(
 	// env vars
 	os.Setenv("BZ_PROJECT_DIR", execCtx.Dir) // also have to be set in lib/model/dependency_tree.go
 
-	ctx := execCtx.Resolve()
+	ctx, err := execCtx.Resolve()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		return -1
+	}
 
 	// Keep Original OS Path
 	originalPathPathStr := os.Getenv("PATH") // /uar/local/bin:/usr/bin
@@ -90,7 +95,7 @@ func (o *Engine) ExecuteWithIO(
 	cmd.Stdout = stdout
 	cmd.Stdin = stdin
 	cmd.Stderr = stderr
-	err := cmd.Run()
+	err = cmd.Run()
 	if err != nil {
 		if exitError, ok := err.(*exec.ExitError); ok {
 			return exitError.ExitCode()
@@ -302,6 +307,11 @@ func (o *Engine) resolvedDependencyFromConfigContext(
 	rd.Alias = aliases
 	rd.Triggers = triggers
 	rd.Sub = subDeps
+
+	if err := o.runInstallScript(rd); err != nil {
+		return nil, fmt.Errorf("install script error: %w", err)
+	}
+
 	return &rd, nil
 }
 
@@ -456,42 +466,54 @@ func (o *Engine) downloadAndInstallDependencyIfNotExists(lockCoord *model.Locked
 		}
 	}
 
-	lc, err := o.lockedConfigContentFromDir(extractToDir)
-	if err != nil {
-		return "", fmt.Errorf("error loading dependency `%s`: %w", lockCoord.String(), err)
-	}
+	// lc, err := o.lockedConfigContentFromDir(extractToDir)
+	// if err != nil {
+	// 	return "", fmt.Errorf("error loading dependency `%s`: %w", lockCoord.String(), err)
+	// }
 
-	if err := o.runInstallScript(extractToDir, lc); err != nil {
-		return "", fmt.Errorf("install script: %w", err)
-	}
+	// if err := o.runInstallScript(extractToDir, lc); err != nil {
+	// 	return "", fmt.Errorf("install script: %w", err)
+	// }
 
 	return extractToDir, nil
 }
 
-func (o *Engine) runInstallScript(dir string, lc *model.LockedConfigContent) error {
+func (o *Engine) runInstallScript(depCtx model.DependencyTree) error {
 	//
-	if lc.Triggers.InstallScript == "" {
+	if depCtx.Triggers.InstallScript == "" {
 		return nil
 	}
 
-	installScript := lc.Triggers.InstallScript
-	lc.Triggers.InstallScript = "" // to avoid running again
-
 	//
-	depCtx, err := o.ContextFromLockedConfig(dir, lc)
+	installScript := depCtx.Triggers.InstallScript
+
+	execCtx, err := depCtx.Resolve()
 	if err != nil {
 		return err
 	}
-
-	execCtx := depCtx.Resolve()
 	installScriptFinal, err := execCtx.Expand(installScript)
 	if err != nil {
 		return err
 	}
+	doneFile := strings.Join([]string{installScriptFinal, "done"}, ".")
 
-	err = luautils.RunLuaInstallScript(installScriptFinal, execCtx, nil)
-	if err != nil {
-		return err
+	// Run lua script if doneFile does not exists
+	if _, err := os.Stat(doneFile); os.IsNotExist(err) {
+		Debug.Printf("Running install script: %s", installScriptFinal)
+		env := utils.OsEnvironment()  // os.environ
+		maps.Copy(env, execCtx.Env()) // dependency enrionment
+		err = luautils.RunLuaScript(installScriptFinal, env, nil)
+		if err != nil {
+			return err
+		}
+	} else {
+		Debug.Printf("Not running install script because done file exists: %s", doneFile)
+	}
+
+	// write done file
+	Debug.Printf("writing install script done file: %s", doneFile)
+	if err := os.WriteFile(doneFile, []byte("done"), 0640); err != nil {
+		Warn.Printf("error writing install script done flag: %s", err)
 	}
 	return nil
 }
