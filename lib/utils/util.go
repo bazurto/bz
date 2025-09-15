@@ -102,6 +102,10 @@ func Unzip(zipFileName, dstDirName string) error {
 			if err != nil {
 				return err
 			}
+
+			if s, _ := os.Stat(path); s.Mode() != zipFile.Mode() {
+				os.Chmod(path, zipFile.Mode())
+			}
 		}
 		return nil
 	}

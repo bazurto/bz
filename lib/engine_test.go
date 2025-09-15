@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/bazurto/bz/lib/model"
@@ -52,4 +53,82 @@ func TestExecutionContext(t *testing.T) {
 	assert.Regexp(t, "#BAZURTO_PYTHON_3_11_1_DIR=.*extracted\\$", result)
 
 	assert.Contains(t, result, fmt.Sprintf("#BZ_PROJECT_DIR=%s$", tmpDir))
+}
+func TestRunInstallScript_NoInstallScript(t *testing.T) {
+	engine := NewEngine(*model.NewDefaultAppContext())
+	dep := model.DependencyTree{
+		Triggers: model.Triggers{
+			InstallScript: "",
+		},
+	}
+	err := engine.runInstallScript(dep)
+	assert.NoError(t, err)
+}
+
+func TestRunInstallScript_InstallScriptAlreadyDone(t *testing.T) {
+	engine := NewEngine(*model.NewDefaultAppContext())
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "install.lua")
+	doneFile := scriptPath + ".done"
+	_ = os.WriteFile(doneFile, []byte("done"), 0640)
+	_ = os.WriteFile(scriptPath, []byte(`
+	dir = os.getenv("DIR") 
+	local f = io.open(dir .. "/luaexecuted.txt", "w")
+	f:write("this was created by lua")
+	f:close()
+	`), 0640)
+	dep := model.DependencyTree{
+		Dir: tmpDir,
+		Triggers: model.Triggers{
+			InstallScript: scriptPath,
+		},
+	}
+	err := engine.runInstallScript(dep)
+	assert.NoError(t, err)
+	assert.FileExists(t, doneFile)
+	assert.NoFileExists(t, filepath.Join(tmpDir, "luaexecuted.txt"))
+}
+
+func TestRunInstallScript_InstallScriptRunsLua(t *testing.T) {
+	engine := NewEngine(*model.NewDefaultAppContext())
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "install.lua")
+	_ = os.WriteFile(scriptPath, []byte(`
+	dir = os.getenv("DIR") 
+	local f = io.open(dir .. "/luaexecuted.txt", "w")
+	f:write("this was created by lua")
+	f:close()
+	`), 0640)
+
+	dep := model.DependencyTree{
+		Dir: tmpDir,
+		Triggers: model.Triggers{
+			InstallScript: scriptPath,
+		},
+	}
+
+	err := engine.runInstallScript(dep)
+	assert.NoError(t, err)
+	assert.FileExists(t, scriptPath+".done")
+	assert.FileExists(t, filepath.Join(tmpDir, "luaexecuted.txt"))
+}
+
+func TestRunInstallScript_LuaScriptError(t *testing.T) {
+	engine := NewEngine(*model.NewDefaultAppContext())
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "install.lua")
+	_ = os.WriteFile(scriptPath, []byte(`
+	error("this is a lua error")
+	`), 0640)
+
+	dep := model.DependencyTree{
+		Dir: tmpDir,
+		Triggers: model.Triggers{
+			InstallScript: scriptPath,
+		},
+	}
+
+	err := engine.runInstallScript(dep)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "lua error")
 }

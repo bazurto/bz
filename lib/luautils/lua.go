@@ -73,8 +73,12 @@ func newBzLuaState(env map[string]string) *lua.LState {
 	bzNS := L.NewTable()
 	L.SetFuncs(bzNS, map[string]lua.LGFunction{
 		"zip":      luaZip,
+		"unzip":    luaUnZip,
 		"mkdir":    luaMkdir,
 		"download": luaDownload,
+		"chmod":    luaChmod,
+		"stat":     luaStat,
+		"debug":    luaDebug,
 	})
 	L.SetGlobal("bz", bzNS)
 	return L
@@ -112,6 +116,130 @@ func luaMkdir(l *lua.LState) int {
 
 	l.Push(luaError(l, true, "")) // push to stack
 	return 1                      // number of return values
+}
+
+func luaChmod(l *lua.LState) int {
+	path := l.CheckString(1)    // get first argument
+	modeStr := l.CheckString(2) // get second argument
+	mode := modeStrToInt(modeStr)
+	err := os.Chmod(path, os.FileMode(mode))
+	if err != nil {
+		l.Push(luaError(l, false, err.Error())) // push to stack
+		return 1                                // number of return values
+	}
+	l.Push(luaError(l, true, "")) // push to stack
+	return 1                      // number of return value
+}
+
+// modeStrToInt converts a string representation of a file mode to an os.FileMode value.
+// The input string can be either an octal number (e.g., "0755") or a symbolic representation
+// (e.g., "rwxr-xr-x"). If the string is empty or invalid, it returns 0.
+// Octal parsing is attempted first; if it fails, symbolic parsing is used.
+// Symbolic representation must be exactly 9 characters, corresponding to "rwxrwxrwx".
+func modeStrToInt(modeStr string) os.FileMode {
+	if len(modeStr) == 0 {
+		return 0
+	}
+	// Try to parse as octal number first
+	var mode uint32
+	n, err := fmt.Sscanf(modeStr, "%o", &mode)
+	if err == nil && n == 1 {
+		return os.FileMode(mode)
+	}
+
+	// If parsing as octal fails, try to parse as symbolic representation
+	var perm os.FileMode
+	if len(modeStr) != 9 && len(modeStr) != 10 {
+		return 0 // Invalid length for symbolic representation
+	}
+	for i, c := range modeStr {
+		switch i {
+		case 0:
+			if c == 'r' {
+				perm |= 0400
+			}
+
+		case 1:
+			if c == 'w' {
+				perm |= 0200
+			}
+		case 2:
+			switch c {
+			case 'x':
+				perm |= 0100
+			case 's':
+				perm |= os.ModeSetuid | 0100
+			case 'S':
+				perm |= os.ModeSetuid
+			}
+		case 3:
+			if c == 'r' {
+				perm |= 0040
+			}
+		case 4:
+			if c == 'w' {
+				perm |= 0020
+			}
+		case 5:
+			switch c {
+			case 'x':
+				perm |= 0010
+			case 's':
+				perm |= os.ModeSetgid | 0010
+			case 'S':
+				perm |= os.ModeSetgid
+			}
+		case 6:
+			if c == 'r' {
+				perm |= 0004
+			}
+		case 7:
+			if c == 'w' {
+				perm |= 0002
+			}
+		case 8:
+			switch c {
+			case 'x':
+				perm |= 0001
+			case 't':
+				perm |= os.ModeSticky | 0001
+			case 'T':
+				perm |= os.ModeSticky
+			}
+		}
+	}
+	return perm
+}
+
+func luaDebug(l *lua.LState) int {
+	v := l.Get(1)            // get first argument
+	fmt.Println("DEBUG:", v) // print to stdout
+	return 0
+}
+
+func luaStat(l *lua.LState) int {
+	path := l.CheckString(1) // get first argument
+	stat, err := os.Stat(path)
+	if err != nil {
+		l.Push(lua.LNil)
+		l.Push(luaError(l, false, err.Error())) // push to stack
+		return 1                                // number of return values
+	}
+	//
+	t := l.NewTable()
+	t.RawSetString("name", lua.LString(stat.Name()))
+	t.RawSetString("size", lua.LNumber(stat.Size()))
+	t.RawSetString("mode", lua.LNumber(uint32(stat.Mode())))
+	t.RawSetString("permission", lua.LString(
+		string([]rune(stat.Mode().String())[1:]), // skip the first character which indicates the file type
+	),
+	)
+
+	t.RawSetString("modtime", lua.LNumber(stat.ModTime().Unix()))
+	t.RawSetString("isdir", lua.LBool(stat.IsDir()))
+	l.Push(t)
+	l.Push(luaError(l, true, "")) // push to stack
+	return 2                      // number of return value
 }
 
 func luaDownload(l *lua.LState) int {
@@ -161,6 +289,20 @@ func luaZip(l *lua.LState) int {
 	return 1
 }
 
+func luaUnZip(l *lua.LState) int {
+	src := l.CheckString(1) // get first argument
+	dst := l.CheckString(2) // get second argument
+
+	err := utils.Unzip(src, dst)
+	if err != nil {
+		l.Push(luaError(l, false, err.Error())) // push to stack
+		return 1
+	}
+
+	l.Push(luaError(l, true, "")) // push to stack
+	return 1
+}
+
 func downloadFile(url string, filepath string) error {
 	// Create the file
 	out, err := os.Create(filepath)
@@ -183,25 +325,5 @@ func downloadFile(url string, filepath string) error {
 
 	// Write the body to file
 	_, err = io.Copy(out, resp.Body)
-	return err
-}
-
-func doHttp(
-	method string,
-	url string,
-	body io.Reader,
-	headers map[string]string,
-	proc func(*http.Response),
-) error {
-	c := http.Client{}
-	req, err := http.NewRequest(method, url, body)
-	if err != nil {
-		return err
-	}
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
-	rep, err := c.Do(req)
-	proc(rep)
 	return err
 }
