@@ -49,6 +49,11 @@ GIT_PREVIOUS_COMMIT=79b6fc6db817e9e293611843fe779cc46968309c
 WORKSPACE_TMP=/home/ubuntu/workspace/bazurto_bz_install-script@tmp
 BRANCH_NAME=install-script
 */
+
+
+// replace basepath
+def hostWorkspace = env.WORKSPACE.replace('/home/jenkins/workspace/', '/var/jenkins_home/workspace/')
+
 def imageName = 'bzbuilder'
 
 def dockerfile = '''
@@ -92,7 +97,7 @@ pipeline {
                 script {
                     def gid = sh(script: "id -g", returnStdout: true).trim()
                     def uid = sh(script: "id -u", returnStdout: true).trim()
-                    sh "docker run --rm -u $uid:$gid -v ${env.WORKSPACE}:${env.WORKSPACE} -w ${env.WORKSPACE} $imageName make"
+                    sh "docker run --rm -u $uid:$gid -v ${hostWorkspace}:${env.WORKSPACE} -w ${env.WORKSPACE} $imageName make"
                 }
             }
         }
