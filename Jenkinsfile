@@ -1,17 +1,17 @@
 def imageName = 'bzbuilder'
-pipeline {
-    agent any
 
-    stages {
-        stage('prepare') {
-            steps {
-                def dockerfile = '''
+def dockerfile = '''
 FROM golang:1.25
 RUN apt-get update && apt-get upgrade
 RUN apt-get install -y build-essential git && mkdir /work
 WORKDIR /work
 CMD ["bash"]
 '''
+pipeline {
+    agent any
+    stages {
+        stage('prepare') {
+            steps {
                 sh 'docker build -t '+ imageName + ' . -<<EOF\n' + dockerfile + '\nEOF'
             }
         }
