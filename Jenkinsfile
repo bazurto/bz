@@ -15,7 +15,8 @@ pipeline {
         stage('prepare') {
             steps {
                 script {
-                    tmpDockerfile = "${env.WORKSPACE}/Dockerfile.tmp1"
+                    def buildDir = ${env.WORKSPACE}/build-${env.BUILD_NUMBER}
+                    tmpDockerfile = "${buildDir}/Dockerfile.tmp1"
                     writeFile file: tmpDockerfile, text: dockerfile
                 }
                 sh "docker build -t ${imageName} . -f ${tmpDockerfile}"
@@ -23,6 +24,8 @@ pipeline {
         }
         stage('Build') {
             steps {
+                sh "echo '---------------------------' && echo \$(whoami) && echo '---------------------------'"
+                sh "echo '---------------------------' && echo \$(pwd) && echo '---------------------------'"
                 sh 'docker run --rm -v $PWD:/work -w /work '+imageName+' make'
             }
         }
