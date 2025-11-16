@@ -5,10 +5,12 @@ package resolver
 
 import (
 	"fmt"
+	"path/filepath"
 	"runtime"
 
 	"github.com/Masterminds/semver"
 	"github.com/bazurto/bz/lib/model"
+	"github.com/bazurto/bz/lib/utils"
 )
 
 type Resolver interface {
@@ -20,7 +22,13 @@ type Resolver interface {
 }
 
 // func possibleAssetNames(c *model.LockedCoord) []BzAsset {
+// e.g. name-darwin-amd64.zip
+// e.g. name-windows-amd64.zip
+// e.g. name-linux-amd64.zip
+// e.g. name-v1.2.3.zip
+// e.g. name.zip
 func possibleAssetNames(pkgName string, version model.Version) []BzAsset {
+
 	osArch := fmt.Sprintf("%s-%s", runtime.GOOS, runtime.GOARCH)
 
 	extensions := []string{"zip", "tgz", "tar.gz"} // possible extensions
@@ -68,4 +76,18 @@ func versionCompare(a, b string) int {
 	}
 
 	return v1.Compare(v2)
+}
+
+func ExtractDependency(file string, extractToDir string) error {
+	var err error
+	ext := filepath.Ext(file)
+	if ext == ".zip" {
+		err = utils.Unzip(file, extractToDir)
+	} else if ext == ".tgz" {
+		err = utils.Untgz(file, extractToDir)
+	}
+	if err != nil {
+		return err
+	}
+	return nil
 }

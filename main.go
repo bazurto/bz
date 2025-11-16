@@ -70,9 +70,13 @@ func main() {
 	}
 
 	// Resolvers
+	bzr := resolver.NewBazurtoResolver(appCtx)
 	ghr := resolver.NewGithubResolver(appCtx)
 	local := resolver.NewLocalDevResolver(appCtx)
+
+	//
 	engine := lib.NewEngine(*appCtx)
+	engine.AddResolver(bzr)
 	engine.AddResolver(ghr)
 	engine.AddResolver(local)
 

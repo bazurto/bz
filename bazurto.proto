@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+option go_package = "github.com/bazurto/bz/grpc/bazurto";
+
+service Bazurto {
+  rpc GetLatestVersion (LatestVersionRequest) returns (LatestVersionResponse) {}
+  rpc ResolveCoord(ResolveCoordRequest) returns (ResolveCoordResponse) {}
+  rpc DownloadCoord (DownloadCoordRequest) returns (stream BinaryChunk) {}
+}
+
+message LatestVersionRequest {
+  string owner = 1;
+  string repo = 2;
+}
+
+message LatestVersionResponse {
+  string version = 1;
+}
+
+
+message ResolveCoordRequest {
+  string Coord = 1;
+}
+
+// e.g. name-darwin-amd64.zip
+// e.g. name-windows-amd64.zip
+// e.g. name-linux-amd64.zip
+// e.g. name-v1.2.3.zip
+// e.g. name.zip
+message ResolveCoordResponse {
+  string Coord = 1;
+  repeated Artifact artifacts = 2;
+}
+
+message Artifact {
+  string os = 1;
+  string arch = 2;
+  string name = 4;
+}
+
+message DownloadCoordRequest {
+  string Coord = 1;
+  string ArtifactName = 2;
+}
+
+message BinaryChunk {
+  bytes data = 1;
+}
+

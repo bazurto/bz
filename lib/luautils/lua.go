@@ -254,9 +254,11 @@ func luaDownload(l *lua.LState) int {
 	}
 
 	if err := downloadFile(url, dstFile); err != nil {
+		//fmt.Fprintf(os.Stderr, "DEBUG: %s", err)
 		l.Push(luaError(l, false, err.Error())) // push to stack
 		return 1                                // number of return values
 	}
+	//fmt.Fprintf(os.Stderr, "DOWNLOAD SUSCESSSFUL")
 
 	l.Push(luaError(l, true, "")) // push to stack
 	return 1                      // number of return values

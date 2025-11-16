@@ -6,12 +6,12 @@
         "Opaque": "",
         "User": null,
         "Host": "github.com",
-        "Path": "/bazurto/groovy",
+        "Path": "/bazurto/gradle",
         "RawPath": "",
         "OmitHost": false,
         "ForceQuery": false,
         "RawQuery": "",
-        "Fragment": "4.0.21",
+        "Fragment": "8.10",
         "RawFragment": ""
       }
     },
@@ -21,27 +21,12 @@
         "Opaque": "",
         "User": null,
         "Host": "github.com",
-        "Path": "/bazurto/python",
+        "Path": "/bazurto/openjdk",
         "RawPath": "",
         "OmitHost": false,
         "ForceQuery": false,
         "RawQuery": "",
-        "Fragment": "3.11.1",
-        "RawFragment": ""
-      }
-    },
-    {
-      "URL": {
-        "Scheme": "file",
-        "Opaque": "",
-        "User": null,
-        "Host": "",
-        "Path": "/home/riramire/workspace/bazurto/bazurto-tools",
-        "RawPath": "",
-        "OmitHost": false,
-        "ForceQuery": false,
-        "RawQuery": "",
-        "Fragment": "",
+        "Fragment": "21.0.2.13",
         "RawFragment": ""
       }
     }

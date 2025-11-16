@@ -1,10 +1,10 @@
 
 deps = [
-        "github.com/bazurto/groovy",
-        "github.com/bazurto/python#3",
-        //"file:///home/ricardo/workspace/bazurto/bazurto-tools",
-        //"github.com/bazurto/dummy-install-script#1",
-        "file:///home/riramire/workspace/bazurto/bazurto-tools",
+            "github.com/bazurto/gradle#8.10",
+            "github.com/bazurto/openjdk#21.0.2.13",
+        #"github.com/bazurto/groovy",
+        #"github.com/bazurto/python#3",
+        #"file:///home/riramire/workspace/bazurto/bazurto-tools",
 ]
 
 # triggers  {

@@ -71,6 +71,7 @@ func (o *Engine) ExecuteWithIO(
 	args = ctx.ResolveAlias(args)
 
 	// SetEnv
+	// PATH is set here in this loop.  Now PATH only contains the path from ctx.Env and not the Original Path
 	for k, v := range ctx.Env() {
 		os.Setenv(k, v)
 	}

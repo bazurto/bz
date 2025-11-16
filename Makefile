@@ -7,7 +7,7 @@ GO_INSTALL=go install -ldflags "-X main.buildInfo=revision:$(REVISION);" -trimpa
 
 build: bz
 
-bz:
+bz: grpc
 	$(GO_BUILD) -gcflags "all=-N -l"
 
 install: bz
@@ -59,6 +59,15 @@ bz-windows-amd64.exe:
 	echo $$(./.github/revision_inc.sh) > .revision.inc.txt
 
 
+grpc: grpc/bazurto/bazurto_grpc.pb.go grpc/bazurto/bazurto.pb.go
+grpc/bazurto/bazurto_grpc.pb.go: bazurto.proto
+	mkdir -p grpc/bazurto
+	protoc --go_out=grpc/bazurto --go-grpc_out=grpc/bazurto --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative bazurto.proto
+grpc/bazurto/bazurto.pb.go: bazurto.proto
+	mkdir -p grpc/bazurto
+	protoc --go_out=grpc/bazurto --go-grpc_out=grpc/bazurto --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative bazurto.proto
+
+
 clean:
 	rm -fr bz 
 	rm -f bz-linux-amd64
@@ -69,6 +78,7 @@ clean:
 	rm -f .revision.inc.txt
 	rm -f .requirements
 	rm -f .deadcode.out
+	rm -fr grpc
 
 
-.PHONY: clean bz install dist
+.PHONY: clean bz install dist grpc

@@ -173,7 +173,7 @@ func (o *GithubResolver) DownloadResolvedCoord(l model.LockedCoord) (string, err
 		Info.Printf("...%s DONE", file)
 	}
 
-	err = o.extractDependency(lc, file, extractToDir)
+	err = ExtractDependency(file, extractToDir)
 	if err != nil {
 		return "", fmt.Errorf("unable to extract dependency: %w", err), false
 	}
@@ -267,20 +267,6 @@ func (o *GithubResolver) newGithubClient(server string) *github.Client {
 	client := github.NewClient(tc)
 	githubClientMap[server] = client
 	return client
-}
-
-func (o *GithubResolver) extractDependency(lc GithubLockedCoord, file string, extractToDir string) error {
-	var err error
-	ext := filepath.Ext(file)
-	if ext == ".zip" {
-		err = utils.Unzip(file, extractToDir)
-	} else if ext == ".tgz" {
-		err = utils.Untgz(file, extractToDir)
-	}
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 type GithubFuzzyCoord struct {
