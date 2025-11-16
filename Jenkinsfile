@@ -102,8 +102,7 @@ pipeline {
         stage('Build') {
             steps {
                 script {
-                    //sh "docker run --rm -u $UID:$GID -v ${env.HOSTWORKSPACE}:/work -w /work $imageName make"
-                    sh "docker run --rm -u $UID:$GID -v ${env.HOSTWORKSPACE}:/work -w /work $imageName find"
+                    sh "docker run --rm -u $UID:$GID -v ${env.HOSTWORKSPACE}:/work -w /work $imageName make"
                 }
             }
         }
