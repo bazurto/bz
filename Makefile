@@ -13,6 +13,7 @@ bz: grpc
 install: bz
 	$(GO_INSTALL)
 
+
 test: .requirements
 	go vet ./...
 	deadcode ./... | grep -v "unreachable func" | tee .deadcode.out

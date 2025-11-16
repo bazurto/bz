@@ -8,6 +8,16 @@ RUN apt-get install -y protobuf-compiler curl wget && \
   go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
   go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 WORKDIR /work
+
+RUN echo '#!/bin/bash" > /entrypoint.sh && \
+    echo 'set -e' >> /entrypoint.sh && \
+    echo 'export GOPATH=/home/ubuntu/go' >> /entrypoint.sh && \
+    echo 'export PATH=$GOPATH/bin:$PATH' >> /entrypoint.sh && \
+    echo 'mkdir -p $GOPATH' >> /entrypoint.sh && \
+    echo 'exec "$@"' >> /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["bash"]
 '''
 def tmpDockerfile = null
