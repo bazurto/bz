@@ -70,7 +70,7 @@ pipeline {
 
     environment {
         HOME = "${env.WORKSPACE}"
-        HOSTWORKSPACE = env.WORKSPACE.replace('/home/jenkins/workspace/', '/var/jenkins_home/workspace/')
+        HOSTWORKSPACE = env.WORKSPACE.replace('/home/ubuntu/workspace/', '/srv/jenkins/home/workspace/')
     }
 
     stages {
