@@ -77,6 +77,11 @@ pipeline {
                 sh "docker build -t ${imageName} . -f ${tmpDockerfile}"
             }
         }
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
         stage('Build') {
             steps {
                 script {
