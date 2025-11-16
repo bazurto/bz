@@ -92,7 +92,7 @@ pipeline {
                 script {
                     def gid = sh(script: "id -g", returnStdout: true).trim()
                     def uid = sh(script: "id -u", returnStdout: true).trim()
-                    sh "docker run --rm -u $uid:$gid -v \$PWD:/work -w /work $imageName make"
+                    sh "docker run --rm -u $uid:$gid -v ${env.WORKSPACE}:${env.WORKSPACE} -w ${env.WORKSPACE} $imageName make"
                 }
             }
         }
