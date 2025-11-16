@@ -18,12 +18,12 @@ pipeline {
                 sh "whoami"
                 sh "pwd"
                 sh "echo $WORKSPACE"
-                script {
-                    def buildDir = ${env.WORKSPACE}/build-${env.BUILD_NUMBER}
-                    tmpDockerfile = "${buildDir}/Dockerfile.tmp1"
-                    writeFile file: tmpDockerfile, text: dockerfile
-                }
-                sh "docker build -t ${imageName} . -f ${tmpDockerfile}"
+                // script {
+                //     def buildDir = ${env.WORKSPACE}/build-${env.BUILD_NUMBER}
+                //     tmpDockerfile = "${buildDir}/Dockerfile.tmp1"
+                //     writeFile file: tmpDockerfile, text: dockerfile
+                // }
+                // sh "docker build -t ${imageName} . -f ${tmpDockerfile}"
             }
         }
         stage('Build') {
