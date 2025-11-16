@@ -79,7 +79,7 @@ pipeline {
                 checkout scm
             }
         }
-        stage('Checkout') {
+        stage('Show files') {
             steps {
                 script {
                     sh "pwd"
