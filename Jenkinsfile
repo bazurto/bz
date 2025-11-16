@@ -7,12 +7,15 @@ RUN apt-get install -y build-essential git && mkdir /work
 WORKDIR /work
 CMD ["bash"]
 '''
+def tmpDockerfile = File.createTempFile("dockerfile", ".txt")
+tmpDockerfile.text = dockerfile
+
 pipeline {
     agent any
     stages {
         stage('prepare') {
             steps {
-                sh 'docker build -t '+ imageName + ' . -<<EOF\n' + dockerfile + '\nEOF'
+                sh "docker build -t ${imageName} . -f ${tmpDockerfile.absolutePath}"
             }
         }
         stage('Build') {
