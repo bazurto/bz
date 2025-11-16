@@ -62,23 +62,21 @@ WORKDIR /work
 CMD ["bash"]
 '''
 def tmpDockerfile = null
+def GID = null
+def UID = null
 
 pipeline {
     agent any
 
     environment {
         HOME = "${env.WORKSPACE}"
+        HOSTWORKSPACE = env.WORKSPACE.replace('/home/jenkins/workspace/', '/var/jenkins_home/workspace/')
     }
 
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
-            }
-        }
-        stage('Show files') {
-            steps {
-                 sh 'ls -l'
             }
         }
         stage('prepare') {
@@ -88,21 +86,21 @@ pipeline {
                     writeFile file: tmpDockerfile, text: dockerfile
                 }
                 sh "docker build -t ${imageName} . -f ${tmpDockerfile}"
+                GID = sh(script: "id -g", returnStdout: true).trim()
+                UID = sh(script: "id -u", returnStdout: true).trim()
+                //HOSTWORKSPACE = env.WORKSPACE.replace('/home/jenkins/workspace/', '/var/jenkins_home/workspace/')
             }
         }
         stage('Build') {
             steps {
                 script {
-                    def gid = sh(script: "id -g", returnStdout: true).trim()
-                    def uid = sh(script: "id -u", returnStdout: true).trim()
-                    def hostWorkspace = env.WORKSPACE.replace('/home/jenkins/workspace/', '/var/jenkins_home/workspace/')
-                    sh "docker run --rm -u $uid:$gid -v ${hostWorkspace}:${env.WORKSPACE} -w ${env.WORKSPACE} $imageName make"
+                    sh "docker run --rm -u $UID:$GID -v ${env.HOSTWORKSPACE}:/work -w /work $imageName make"
                 }
             }
         }
         stage('Test') {
             steps {
-                sh 'docker run --rm -v $PWD:/work -w /work '+imageName+' make test'
+                sh "docker run --rm -u $UID:$GID -v ${env.HOSTWORKSPACE}:/work -w /work $imageName make test"
             }
         }
         // stage('Deploy') {
