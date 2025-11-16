@@ -13,6 +13,7 @@ CMD ["bash"]
 def tmpDockerfile = null
 def GID = null
 def UID = null
+def dockerRun = null
 
 pipeline {
     agent any
@@ -43,7 +44,7 @@ pipeline {
                     writeFile file: tmpDockerfile, text: dockerfile
                     GID = sh(script: "id -g", returnStdout: true).trim()
                     UID = sh(script: "id -u", returnStdout: true).trim()
-                    //HOSTWORKSPACE = env.WORKSPACE.replace('/home/jenkins/workspace/', '/var/jenkins_home/workspace/')
+                    dockerRun = "docker run --rm -u $UID:$GID -v ${env.HOSTWORKSPACE}/_go:/home/ubuntu/go -v ${env.HOSTWORKSPACE}:/work -w /work $imageName"
                 }
                 sh "docker build -t ${imageName} . -f ${tmpDockerfile}"
             }
@@ -51,13 +52,13 @@ pipeline {
         stage('Build') {
             steps {
                 script {
-                    sh "docker run --rm -u $UID:$GID -v ${env.HOSTWORKSPACE}:/work -w /work $imageName make"
+                    sh "$dockerRun make"
                 }
             }
         }
         stage('Test') {
             steps {
-                sh "docker run --rm -u $UID:$GID -v ${env.HOSTWORKSPACE}:/work -w /work $imageName make test"
+                sh "$dockerRun make test"
             }
         }
         // stage('Deploy') {
