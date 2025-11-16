@@ -34,10 +34,6 @@ test: .requirements
 	echo "go install go.uber.org/nilaway/cmd/nilaway@latest" >> .requirements
 	go install golang.org/x/tools/go/analysis/passes/nilness/cmd/nilness@latest
 	echo "go install golang.org/x/tools/go/analysis/passes/nilness/cmd/nilness@latest" >> .requirements
-	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-	echo "go install google.golang.org/protobuf/cmd/protoc-gen-go@latest" >> .requirements
-	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-	echo "go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest" >> .requirements
 
 release: .revision.inc.txt bz-linux-amd64 bz-linux-arm64 bz-darwin-amd64 bz-darwin-arm64 bz-windows-amd64.exe
 	gh release create --generate-notes -t v$(REVISION) v$(REVISION)
@@ -65,13 +61,18 @@ bz-windows-amd64.exe:
 
 
 grpc: grpc/bazurto/bazurto_grpc.pb.go grpc/bazurto/bazurto.pb.go
-grpc/bazurto/bazurto_grpc.pb.go: bazurto.proto
+
+grpc/bazurto/bazurto_grpc.pb.go: bazurto.proto .proto-gen-go
 	mkdir -p grpc/bazurto
 	protoc --go_out=grpc/bazurto --go-grpc_out=grpc/bazurto --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative bazurto.proto
-grpc/bazurto/bazurto.pb.go: bazurto.proto
+grpc/bazurto/bazurto.pb.go: bazurto.proto .proto-gen-go
 	mkdir -p grpc/bazurto
 	protoc --go_out=grpc/bazurto --go-grpc_out=grpc/bazurto --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative bazurto.proto
 
+.proto-gen-go:
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+	echo "done" > .proto-gen-go
 
 clean:
 	rm -fr bz 
@@ -84,6 +85,7 @@ clean:
 	rm -f .requirements
 	rm -f .deadcode.out
 	rm -fr grpc
+	rm -fr .proto-gen-go
 
 
 .PHONY: clean bz install dist grpc
