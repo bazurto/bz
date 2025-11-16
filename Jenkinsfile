@@ -79,7 +79,11 @@ pipeline {
         }
         stage('Build') {
             steps {
-                sh 'docker run --rm -v $PWD:/work -w /work '+imageName+' make'
+                script {
+                    def gid = sh(script: "id -g", returnStdout: true).trim()
+                    def uid = sh(script: "id -u", returnStdout: true).trim()
+                    sh "docker run --rm -u $uid:$gid -v \$PWD:/work -w /work $imageName make"
+                }
             }
         }
         stage('Test') {
