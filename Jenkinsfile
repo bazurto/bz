@@ -1,6 +1,6 @@
 def imageName = 'bzbuilder'
 def dockerfile = '''
-FROM ubuntu:25.10                                                                                                                                       RUN apt-get update && apt-get upgrade -y                                                                                                                
+FROM ubuntu:25.10
 RUN apt-get install -y build-essential git && mkdir /work && chown ubuntu:ubuntu /work
 RUN apt-get install -y protobuf-compiler curl wget && \
   bash -c "$(curl https://gist.githubusercontent.com/ricardorg79/3edd1e9d10d811e67eb935a047d5039f/raw)" && \
