@@ -56,7 +56,7 @@ pipeline {
                     UID = sh(script: "id -u", returnStdout: true).trim()
                     dockerRun = "docker run --rm " +
                         "-u $UID:$GID " +
-                        "-e GOPATH=/work/go " +
+                        "-e GOPATH=/home/ubuntu/go " +
                         "-v ${env.HOSTWORKSPACE}/go:/home/ubuntu/go " +
                         "-v ${env.HOSTWORKSPACE}/source:/work " +
                         "-w /work $imageName"
