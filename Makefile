@@ -34,6 +34,10 @@ test: .requirements
 	echo "go install go.uber.org/nilaway/cmd/nilaway@latest" >> .requirements
 	go install golang.org/x/tools/go/analysis/passes/nilness/cmd/nilness@latest
 	echo "go install golang.org/x/tools/go/analysis/passes/nilness/cmd/nilness@latest" >> .requirements
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	echo "go install google.golang.org/protobuf/cmd/protoc-gen-go@latest" >> .requirements
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+	echo "go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest" >> .requirements
 
 release: .revision.inc.txt bz-linux-amd64 bz-linux-arm64 bz-darwin-amd64 bz-darwin-arm64 bz-windows-amd64.exe
 	gh release create --generate-notes -t v$(REVISION) v$(REVISION)
