@@ -15,8 +15,8 @@ pipeline {
         stage('prepare') {
             steps {
                 script {
-                    tmpDockerfile = new File("$WORKSPACE/Dockerfile.tmp")
-                    tmpDockerfile.text = dockerfile
+                    tmpDockerfile = "${env.WORKSPACE}/Dockerfile.tmp1"
+                    writeFile file: tmpDockerfile, text: dockerfile
                 }
                 sh "docker build -t ${imageName} . -f ${tmpDockerfile.absolutePath}"
             }
