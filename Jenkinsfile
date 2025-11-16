@@ -1,3 +1,72 @@
+def imageName = 'bzbuilder'
+def dockerfile = '''
+FROM ubuntu:25.10                                                                                                                                       RUN apt-get update && apt-get upgrade -y                                                                                                                
+RUN apt-get install -y build-essential git && mkdir /work && chown ubuntu:ubuntu /work
+RUN apt-get install -y protobuf-compiler curl wget && \
+  bash -c "$(curl https://gist.githubusercontent.com/ricardorg79/3edd1e9d10d811e67eb935a047d5039f/raw)" && \
+  go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
+  go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+WORKDIR /work
+CMD ["bash"]
+'''
+def tmpDockerfile = null
+def GID = null
+def UID = null
+
+pipeline {
+    agent any
+
+    environment {
+        HOME = "${env.WORKSPACE}"
+        HOSTWORKSPACE = env.WORKSPACE.replace('/home/ubuntu/workspace/', '/srv/jenkins/home/workspace/')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        // stage('Show files') {
+        //     steps {
+        //         script {
+        //             sh "pwd"
+        //             sh "ls -hla"
+        //         }
+        //     }
+        // }
+        stage('prepare') {
+            steps {
+                script {
+                    tmpDockerfile = "${env.WORKSPACE}/Dockerfile.tmp1"
+                    writeFile file: tmpDockerfile, text: dockerfile
+                    GID = sh(script: "id -g", returnStdout: true).trim()
+                    UID = sh(script: "id -u", returnStdout: true).trim()
+                    //HOSTWORKSPACE = env.WORKSPACE.replace('/home/jenkins/workspace/', '/var/jenkins_home/workspace/')
+                }
+                sh "docker build -t ${imageName} . -f ${tmpDockerfile}"
+            }
+        }
+        stage('Build') {
+            steps {
+                script {
+                    sh "docker run --rm -u $UID:$GID -v ${env.HOSTWORKSPACE}:/work -w /work $imageName make"
+                }
+            }
+        }
+        stage('Test') {
+            steps {
+                sh "docker run --rm -u $UID:$GID -v ${env.HOSTWORKSPACE}:/work -w /work $imageName make test"
+            }
+        }
+        // stage('Deploy') {
+        //     steps {
+        //         echo 'Deploying....'
+        //     }
+        // }
+    }
+}
+
 /**
 SUDO_GID=0
 JENKINS_HOME=/home/ubuntu
@@ -50,75 +119,3 @@ WORKSPACE_TMP=/home/ubuntu/workspace/bazurto_bz_install-script@tmp
 BRANCH_NAME=install-script
 */
 
-
-
-def imageName = 'bzbuilder'
-
-def dockerfile = '''
-FROM golang:1.25
-RUN apt-get update && apt-get upgrade -y
-RUN apt-get install -y build-essential git && mkdir /work
-RUN apt-get install -y protobuf-compiler && \
-    go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
-    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-
-WORKDIR /work
-CMD ["bash"]
-'''
-def tmpDockerfile = null
-def GID = null
-def UID = null
-
-pipeline {
-    agent any
-
-    environment {
-        HOME = "${env.WORKSPACE}"
-        HOSTWORKSPACE = env.WORKSPACE.replace('/home/ubuntu/workspace/', '/srv/jenkins/home/workspace/')
-    }
-
-    stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
-        stage('Show files') {
-            steps {
-                script {
-                    sh "pwd"
-                    sh "ls -hla"
-                }
-            }
-        }
-        stage('prepare') {
-            steps {
-                script {
-                    tmpDockerfile = "${env.WORKSPACE}/Dockerfile.tmp1"
-                    writeFile file: tmpDockerfile, text: dockerfile
-                    GID = sh(script: "id -g", returnStdout: true).trim()
-                    UID = sh(script: "id -u", returnStdout: true).trim()
-                    //HOSTWORKSPACE = env.WORKSPACE.replace('/home/jenkins/workspace/', '/var/jenkins_home/workspace/')
-                }
-                sh "docker build -t ${imageName} . -f ${tmpDockerfile}"
-            }
-        }
-        stage('Build') {
-            steps {
-                script {
-                    sh "docker run --rm -u $UID:$GID -v ${env.HOSTWORKSPACE}:/work -w /work $imageName make"
-                }
-            }
-        }
-        stage('Test') {
-            steps {
-                sh "docker run --rm -u $UID:$GID -v ${env.HOSTWORKSPACE}:/work -w /work $imageName make test"
-            }
-        }
-        // stage('Deploy') {
-        //     steps {
-        //         echo 'Deploying....'
-        //     }
-        // }
-    }
-}
