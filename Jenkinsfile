@@ -8,14 +8,13 @@ RUN apt-get install -y protobuf-compiler curl wget && \
 
 WORKDIR /work
 
-#RUN echo '#!/bin/bash' > /entrypoint.sh && \
-#    echo 'set -e' >> /entrypoint.sh && \
-#    echo 'export GOPATH=$(go env GOPATH)' >> /entrypoint.sh && \
-#    echo 'export PATH=$GOPATH/bin:$PATH' >> /entrypoint.sh && \
-#    echo 'mkdir -p $GOPATH' >> /entrypoint.sh && \
-#    echo 'exec "$@"' >> /entrypoint.sh && \
-#    chmod +x /entrypoint.sh
-#ENTRYPOINT ["/entrypoint.sh"]
+RUN echo '#!/bin/bash' > /entrypoint.sh && \
+    echo 'set -e' >> /entrypoint.sh && \
+    echo 'export GOPATH=$(go env GOPATH)' >> /entrypoint.sh && \
+    echo 'export PATH=$GOPATH/bin:$PATH' >> /entrypoint.sh && \
+    echo 'exec "$@"' >> /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
 
 CMD ["bash"]
 '''
