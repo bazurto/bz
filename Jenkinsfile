@@ -12,7 +12,7 @@ WORKDIR /work
 
 RUN echo '#!/bin/bash' > /entrypoint.sh && \
     echo 'set -e' >> /entrypoint.sh && \
-    echo 'export GOPATH=/home/ubuntu/go' >> /entrypoint.sh && \
+    echo 'export GOPATH=$(go env GOPATH)' >> /entrypoint.sh && \
     echo 'export PATH=$GOPATH/bin:$PATH' >> /entrypoint.sh && \
     echo 'mkdir -p $GOPATH' >> /entrypoint.sh && \
     echo 'exec "$@"' >> /entrypoint.sh && \
@@ -50,7 +50,6 @@ pipeline {
         // }
         stage('prepare') {
             steps {
-
                 sh "mkdir -p ${env.WORKSPACE}/_go"
                 script {
                     tmpDockerfile = "${env.WORKSPACE}/Dockerfile.tmp1"
@@ -60,6 +59,13 @@ pipeline {
                     dockerRun = "docker run --rm -u $UID:$GID -v ${env.HOSTWORKSPACE}/_go:/home/ubuntu/go -v ${env.HOSTWORKSPACE}:/work -w /work $imageName"
                 }
                 sh "docker build -t ${imageName} . -f ${tmpDockerfile}"
+            }
+        }
+        stage('Clean') {
+            steps {
+                script {
+                    sh "$dockerRun make clean"
+                }
             }
         }
         stage('Build') {
