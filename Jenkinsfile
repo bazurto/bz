@@ -39,6 +39,8 @@ pipeline {
         // }
         stage('prepare') {
             steps {
+
+                sh "mkdir -p ${env.WORKSPACE}/_go"
                 script {
                     tmpDockerfile = "${env.WORKSPACE}/Dockerfile.tmp1"
                     writeFile file: tmpDockerfile, text: dockerfile
