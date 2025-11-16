@@ -79,6 +79,14 @@ pipeline {
                 checkout scm
             }
         }
+        stage('Checkout') {
+            steps {
+                script {
+                    sh "pwd"
+                    sh "ls -hla"
+                }
+            }
+        }
         stage('prepare') {
             steps {
                 script {
