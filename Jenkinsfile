@@ -49,38 +49,34 @@ pipeline {
         // }
         stage('prepare') {
             steps {
-                dir("source") {
-                    sh "mkdir -p ${env.WORKSPACE}/_go"
-                    script {
-                        tmpDockerfile = "${env.WORKSPACE}/Dockerfile.tmp1"
-                        writeFile file: tmpDockerfile, text: dockerfile
-                        GID = sh(script: "id -g", returnStdout: true).trim()
-                        UID = sh(script: "id -u", returnStdout: true).trim()
-                        dockerRun = "docker run --rm -u $UID:$GID -e GOPATH=/work/go -v ${env.HOSTWORKSPACE}:/work -w /work $imageName"
-                    }
-                    sh "docker build -t ${imageName} . -f ${tmpDockerfile}"
+                script {
+                    tmpDockerfile = "${env.WORKSPACE}/Dockerfile.tmp1"
+                    writeFile file: tmpDockerfile, text: dockerfile
+                    GID = sh(script: "id -g", returnStdout: true).trim()
+                    UID = sh(script: "id -u", returnStdout: true).trim()
+                    dockerRun = "docker run --rm " +
+                        "-u $UID:$GID " +
+                        "-e GOPATH=/work/go " +
+                        "-v ${env.HOSTWORKSPACE}/go:/home/ubuntu/go " +
+                        "-v ${env.HOSTWORKSPACE}/source:/work " +
+                        "-w /work $imageName"
                 }
+                sh "docker build -t ${imageName} . -f ${tmpDockerfile}"
             }
         }
         stage('Clean') {
             steps {
-                dir("source") {
-                    sh "$dockerRun make clean"
-                }
+                sh "$dockerRun make clean"
             }
         }
         stage('Build') {
             steps {
-                dir("source") {
-                    sh "$dockerRun make"
-                }
+                sh "$dockerRun make"
             }
         }
         stage('Test') {
             steps {
-                dir("source") {
-                    sh "$dockerRun make test"
-                }
+                sh "$dockerRun make test"
             }
         }
         // stage('Deploy') {
