@@ -73,7 +73,7 @@ pipeline {
                 checkout scm
             }
         }
-        stage('Checkout') {
+        stage('Show files') {
             steps {
                  sh 'ls -l'
             }
