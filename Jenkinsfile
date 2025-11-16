@@ -84,11 +84,11 @@ pipeline {
                 script {
                     tmpDockerfile = "${env.WORKSPACE}/Dockerfile.tmp1"
                     writeFile file: tmpDockerfile, text: dockerfile
+                    GID = sh(script: "id -g", returnStdout: true).trim()
+                    UID = sh(script: "id -u", returnStdout: true).trim()
+                    //HOSTWORKSPACE = env.WORKSPACE.replace('/home/jenkins/workspace/', '/var/jenkins_home/workspace/')
                 }
                 sh "docker build -t ${imageName} . -f ${tmpDockerfile}"
-                GID = sh(script: "id -g", returnStdout: true).trim()
-                UID = sh(script: "id -u", returnStdout: true).trim()
-                //HOSTWORKSPACE = env.WORKSPACE.replace('/home/jenkins/workspace/', '/var/jenkins_home/workspace/')
             }
         }
         stage('Build') {
