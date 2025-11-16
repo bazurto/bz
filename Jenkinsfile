@@ -12,11 +12,11 @@ pipeline {
     agent any
     stages {
         stage('prepare') {
-            script {
-                def tmpDockerfile = File.createTempFile("dockerfile", ".txt")
-                tmpDockerfile.text = dockerfile
-            }
             steps {
+                script {
+                    def tmpDockerfile = File.createTempFile("dockerfile", ".txt")
+                    tmpDockerfile.text = dockerfile
+                }
                 sh "docker build -t ${imageName} . -f ${tmpDockerfile.absolutePath}"
             }
         }
