@@ -14,10 +14,9 @@ pipeline {
     stages {
         stage('prepare') {
             steps {
-                sh "echo $WORKSPACE"
-                sh "whoami"
-                sh "pwd"
-                sh "echo $WORKSPACE"
+                sh "echo ==============================================================================================="
+                sh "env"
+                sh "echo ==============================================================================================="
                 // script {
                 //     def buildDir = ${env.WORKSPACE}/build-${env.BUILD_NUMBER}
                 //     tmpDockerfile = "${buildDir}/Dockerfile.tmp1"
