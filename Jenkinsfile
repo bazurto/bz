@@ -51,8 +51,6 @@ BRANCH_NAME=install-script
 */
 
 
-// replace basepath
-def hostWorkspace = env.WORKSPACE.replace('/home/jenkins/workspace/', '/var/jenkins_home/workspace/')
 
 def imageName = 'bzbuilder'
 
@@ -97,6 +95,7 @@ pipeline {
                 script {
                     def gid = sh(script: "id -g", returnStdout: true).trim()
                     def uid = sh(script: "id -u", returnStdout: true).trim()
+                    def hostWorkspace = env.WORKSPACE.replace('/home/jenkins/workspace/', '/var/jenkins_home/workspace/')
                     sh "docker run --rm -u $uid:$gid -v ${hostWorkspace}:${env.WORKSPACE} -w ${env.WORKSPACE} $imageName make"
                 }
             }
