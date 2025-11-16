@@ -7,9 +7,10 @@ RUN apt-get install -y protobuf-compiler curl wget && \
   bash -c "$(curl https://gist.githubusercontent.com/ricardorg79/3edd1e9d10d811e67eb935a047d5039f/raw)" && \
   go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
   go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
 WORKDIR /work
 
-RUN echo '#!/bin/bash" > /entrypoint.sh && \
+RUN echo '#!/bin/bash' > /entrypoint.sh && \
     echo 'set -e' >> /entrypoint.sh && \
     echo 'export GOPATH=/home/ubuntu/go' >> /entrypoint.sh && \
     echo 'export PATH=$GOPATH/bin:$PATH' >> /entrypoint.sh && \
