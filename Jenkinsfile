@@ -68,6 +68,16 @@ pipeline {
     }
 
     stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        stage('Checkout') {
+            steps {
+                 sh 'ls -l'
+            }
+        }
         stage('prepare') {
             steps {
                 script {
@@ -75,11 +85,6 @@ pipeline {
                     writeFile file: tmpDockerfile, text: dockerfile
                 }
                 sh "docker build -t ${imageName} . -f ${tmpDockerfile}"
-            }
-        }
-        stage('Checkout') {
-            steps {
-                checkout scm
             }
         }
         stage('Build') {
