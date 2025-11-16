@@ -8,15 +8,15 @@ RUN apt-get install -y protobuf-compiler curl wget && \
 
 WORKDIR /work
 
-RUN echo '#!/bin/bash' > /entrypoint.sh && \
-    echo 'set -e' >> /entrypoint.sh && \
-    echo 'export GOPATH=$(go env GOPATH)' >> /entrypoint.sh && \
-    echo 'export PATH=$GOPATH/bin:$PATH' >> /entrypoint.sh && \
-    echo 'mkdir -p $GOPATH' >> /entrypoint.sh && \
-    echo 'exec "$@"' >> /entrypoint.sh && \
-    chmod +x /entrypoint.sh
+#RUN echo '#!/bin/bash' > /entrypoint.sh && \
+#    echo 'set -e' >> /entrypoint.sh && \
+#    echo 'export GOPATH=$(go env GOPATH)' >> /entrypoint.sh && \
+#    echo 'export PATH=$GOPATH/bin:$PATH' >> /entrypoint.sh && \
+#    echo 'mkdir -p $GOPATH' >> /entrypoint.sh && \
+#    echo 'exec "$@"' >> /entrypoint.sh && \
+#    chmod +x /entrypoint.sh
+#ENTRYPOINT ["/entrypoint.sh"]
 
-ENTRYPOINT ["/entrypoint.sh"]
 CMD ["bash"]
 '''
 def tmpDockerfile = null
@@ -54,7 +54,7 @@ pipeline {
                     writeFile file: tmpDockerfile, text: dockerfile
                     GID = sh(script: "id -g", returnStdout: true).trim()
                     UID = sh(script: "id -u", returnStdout: true).trim()
-                    dockerRun = "docker run --rm -u $UID:$GID -v ${env.HOSTWORKSPACE}/_go:/home/ubuntu/go -v ${env.HOSTWORKSPACE}:/work -w /work $imageName"
+                    dockerRun = "docker run --rm -u $UID:$GID -e GOPATH=/work/go -v ${env.HOSTWORKSPACE}:/work -w /work $imageName"
                 }
                 sh "docker build -t ${imageName} . -f ${tmpDockerfile}"
             }
