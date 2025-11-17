@@ -3,12 +3,14 @@
   "packages": [
     "go@1.25.2",
     "gnumake@latest",
-    "protobuf@32.1"
+    "protobuf@32.1",
+    "jdk@25"
   ],
+  "env": {
+    "PATH": "$HOME/go/bin:$PATH"
+  },
   "shell": {
-    "init_hook": [
-      "echo 'Welcome to devbox!' > /dev/null"
-    ],
+    "init_hook": [ ],
     "scripts": {
       "test": [
         "echo \"Error: no test specified\" && exit 1"
