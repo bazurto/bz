@@ -39,46 +39,69 @@ pipeline {
                 }
             }
         }
-        // stage('Show files') {
-        //     steps {
-        //         script {
-        //             sh "pwd"
-        //             sh "ls -hla"
-        //         }
-        //     }
-        // }
-        stage('prepare') {
+        stage('Prepare') {
             steps {
-                script {
-                    tmpDockerfile = "${env.WORKSPACE}/Dockerfile.tmp1"
-                    writeFile file: tmpDockerfile, text: dockerfile
-                    GID = sh(script: "id -g", returnStdout: true).trim()
-                    UID = sh(script: "id -u", returnStdout: true).trim()
-                    dockerRun = "docker run --rm " +
-                        "-u $UID:$GID " +
-                        "-e GOPATH=/home/ubuntu/go " +
-                        "-v ${env.HOSTWORKSPACE}/go:/home/ubuntu/go " +
-                        "-v ${env.HOSTWORKSPACE}/source:/work " +
-                        "-w /work $imageName"
+                dir("source") {
+                    sh 'devbox install'
                 }
-                sh "docker build -t ${imageName} . -f ${tmpDockerfile}"
             }
         }
         stage('Clean') {
             steps {
-                sh "$dockerRun make clean"
+                dir("source") {
+                    sh 'devbox run make clean'
+                }
             }
         }
         stage('Build') {
             steps {
-                sh "$dockerRun make"
+                dir("source") {
+                    sh 'devbox run make'
+                }
             }
         }
         stage('Test') {
             steps {
-                sh "$dockerRun make test"
+                dir("source") {
+                    sh 'devbox run make test'
+                }
             }
         }
+        // stage('prepare') {
+        //     steps {
+        //         script {
+        //             tmpDockerfile = "${env.WORKSPACE}/Dockerfile.tmp1"
+        //             writeFile file: tmpDockerfile, text: dockerfile
+        //             GID = sh(script: "id -g", returnStdout: true).trim()
+        //             UID = sh(script: "id -u", returnStdout: true).trim()
+        //             dockerRun = "docker run --rm " +
+        //                 "-u $UID:$GID " +
+        //                 "-e GOPATH=/home/ubuntu/go " +
+        //                 "-v ${env.HOSTWORKSPACE}/go:/home/ubuntu/go " +
+        //                 "-v ${env.HOSTWORKSPACE}/source:/work " +
+        //                 "-w /work $imageName"
+        //         }
+        //         sh "docker build -t ${imageName} . -f ${tmpDockerfile}"
+        //     }
+        // }
+        // stage('Clean') {
+        //     steps {
+        //         sh "$dockerRun make clean"
+        //     }
+        // }
+        // stage('Build') {
+        //     steps {
+        //         sh "$dockerRun make"
+        //     }
+        // }
+        // stage('Test') {
+        //     steps {
+        //         sh "$dockerRun make test"
+        //     }
+        // }
+
+
+
         // stage('Deploy') {
         //     steps {
         //         echo 'Deploying....'

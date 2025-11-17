@@ -65,10 +65,15 @@ func TestBazurtoResolver(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to resolve coord: %v", err)
 	}
+	if lc == nil {
+		t.Errorf("Expected URL bot got nil")
+	}
+	if lc == nil {
+		t.Fatalf("Expected resolved coord, got nil")
+	}
 	if lc.URL.Hostname() != "bazurto" {
 		t.Errorf("Expected URL host to be 'bazurto', got '%s'", lc.URL.Host)
 	}
-
 	_, err, _ = resolver.DownloadResolvedCoord(*lc)
 	if err != nil {
 		t.Fatalf("Failed to download resolved coord: %v", err)
