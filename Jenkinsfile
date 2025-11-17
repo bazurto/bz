@@ -1,34 +1,9 @@
-def imageName = 'bzbuilder'
-def dockerfile = '''
-FROM ubuntu:25.10
-RUN apt-get update && apt-get upgrade -y
-RUN apt-get install -y build-essential git && mkdir /work && chown ubuntu:ubuntu /work
-RUN apt-get install -y protobuf-compiler curl wget && \
-  bash -c "$(curl https://gist.githubusercontent.com/ricardorg79/3edd1e9d10d811e67eb935a047d5039f/raw)"
-
-WORKDIR /work
-
-RUN echo '#!/bin/bash' > /entrypoint.sh && \
-    echo 'set -e' >> /entrypoint.sh && \
-    echo 'export GOPATH=$(go env GOPATH)' >> /entrypoint.sh && \
-    echo 'export PATH=$GOPATH/bin:$PATH' >> /entrypoint.sh && \
-    echo 'exec "$@"' >> /entrypoint.sh && \
-    chmod +x /entrypoint.sh
-ENTRYPOINT ["/entrypoint.sh"]
-
-CMD ["bash"]
-'''
-def tmpDockerfile = null
-def GID = null
-def UID = null
-def dockerRun = null
-
 pipeline {
     agent any
 
     environment {
-        HOME = "${env.WORKSPACE}"
-        HOSTWORKSPACE = env.WORKSPACE.replace('/home/ubuntu/workspace/', '/srv/jenkins/home/workspace/')
+        HOME = "${env.WORKSPACE}" // this will set the GOPATH=$WORKSPACE/go
+        PATH = "${env.WORKSPACE}/go/bin:${env.PATH}" // this will set the GOPATH=$WORKSPACE/go
     }
 
     stages {
@@ -67,40 +42,6 @@ pipeline {
                 }
             }
         }
-        // stage('prepare') {
-        //     steps {
-        //         script {
-        //             tmpDockerfile = "${env.WORKSPACE}/Dockerfile.tmp1"
-        //             writeFile file: tmpDockerfile, text: dockerfile
-        //             GID = sh(script: "id -g", returnStdout: true).trim()
-        //             UID = sh(script: "id -u", returnStdout: true).trim()
-        //             dockerRun = "docker run --rm " +
-        //                 "-u $UID:$GID " +
-        //                 "-e GOPATH=/home/ubuntu/go " +
-        //                 "-v ${env.HOSTWORKSPACE}/go:/home/ubuntu/go " +
-        //                 "-v ${env.HOSTWORKSPACE}/source:/work " +
-        //                 "-w /work $imageName"
-        //         }
-        //         sh "docker build -t ${imageName} . -f ${tmpDockerfile}"
-        //     }
-        // }
-        // stage('Clean') {
-        //     steps {
-        //         sh "$dockerRun make clean"
-        //     }
-        // }
-        // stage('Build') {
-        //     steps {
-        //         sh "$dockerRun make"
-        //     }
-        // }
-        // stage('Test') {
-        //     steps {
-        //         sh "$dockerRun make test"
-        //     }
-        // }
-
-
 
         // stage('Deploy') {
         //     steps {
