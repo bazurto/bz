@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -60,7 +59,7 @@ func NewBazurtoResolver(
 		host:    "localhost",
 		port:    50051,
 		timeout: time.Second * 5,
-		token:   "12345",
+		token:   "",
 	}
 	for _, opt := range options {
 		opt(r)
@@ -111,7 +110,7 @@ func (o *BazurtoResolver) ResolveCoord(c model.FuzzyCoord) (*model.LockedCoord, 
 			Coord: c.String(),
 		})
 		if err != nil {
-			log.Fatalf("Error calling ResolveCoord: %v", err)
+			return fmt.Errorf("error calling ResolveCoord: %w", err)
 		}
 		u, err := url.Parse(resp.Coord)
 		if err != nil {

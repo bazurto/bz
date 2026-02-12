@@ -17,16 +17,20 @@ install: bz
 
 test: .requirements
 	go vet ./...
-	deadcode ./... | grep -v "unreachable func" | tee .deadcode.out
+	deadcode ./... | grep -v "unreachable func" | tee .deadcode.out; \
 	if [ -s .deadcode.out ]; then \
-		echo "Dead code found" \
-		rm -f .deadcode.out \
+		echo "Dead code found"; \
+		rm -f .deadcode.out; \
 		exit 1; \
 	fi
+	rm -f .deadcode.out
 	nilaway -include-pkgs="github.com/bazurto/bz" ./...
 	go vet -vettool $(shell which nilness) ./...
 	$(GO_BUILD) -v ./...
 	go test ./...
+
+fmt:
+	gofmt -w .
 
 release: .revision.inc.txt bz-linux-amd64 bz-linux-arm64 bz-darwin-amd64 bz-darwin-arm64 bz-windows-amd64.exe
 	gh release create --generate-notes -t v$(REVISION) v$(REVISION)
@@ -54,11 +58,7 @@ bz-windows-amd64.exe:
 
 grpc: grpc/bazurto/bazurto_grpc.pb.go grpc/bazurto/bazurto.pb.go
 
-grpc/bazurto/bazurto_grpc.pb.go: bazurto.proto .requirements
-	mkdir -p grpc/bazurto
-	protoc --go_out=grpc/bazurto --go-grpc_out=grpc/bazurto --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative bazurto.proto
-
-grpc/bazurto/bazurto.pb.go: bazurto.proto .requirements
+grpc/bazurto/bazurto_grpc.pb.go grpc/bazurto/bazurto.pb.go: bazurto.proto .requirements
 	mkdir -p grpc/bazurto
 	protoc --go_out=grpc/bazurto --go-grpc_out=grpc/bazurto --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative bazurto.proto
 
@@ -81,7 +81,7 @@ $(GOPATH)/bin/protoc-gen-go-grpc:
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
 clean:
-	rm -fr bz 
+	rm -fr bz
 	rm -f bz-linux-amd64
 	rm -f bz-linux-arm64
 	rm -f bz-darwin-amd64
@@ -93,4 +93,4 @@ clean:
 	rm -fr grpc
 
 
-.PHONY: clean bz install dist grpc
+.PHONY: clean bz install dist grpc test release fmt

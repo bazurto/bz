@@ -40,7 +40,7 @@ func NewEngine(appCtx model.AppContext) *Engine {
 }
 
 func (o *Engine) Execute(execCtx *model.DependencyTree, args []string) int {
-	return o.ExecuteWithIO(execCtx, args, os.Stdout, os.Stdin, os.Stderr)
+	return o.ExecuteWithIO(execCtx, args, os.Stdout, os.Stderr, os.Stdin)
 }
 
 func (o *Engine) ExecuteWithIO(
