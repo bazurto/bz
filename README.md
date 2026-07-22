@@ -86,6 +86,22 @@ For given package: `"github.com/bazurto/python#3"`
 If given a more specific version like `"github.com/bazurto/python#3.11.1"`
 - It would look for releases that match the pattern `3.11.1.*`. E.g.: it will pick `3.11.1` out of (2.0.1 and `3.11.1`)
 
+## Triggers: install and pre-run scripts
+
+Packages and projects can declare Lua trigger scripts:
+
+```hcl
+triggers {
+  installScript = "$DIR/install.lua"   # runs once after the package is downloaded
+  preRunScript  = "$DIR/prerun.lua"    # runs before every command to set up env/aliases/PATH
+}
+```
+
+This enables *meta-packages*: a package whose install script downloads the
+actual software and whose pre-run script points the environment at it.
+See [docs/triggers.md](docs/triggers.md) for the full lifecycle, run-once
+semantics, and the Lua API (`bz.download`, `bz.unzip`, `bz.stat`, ...).
+
 ## Antivirus False Positive
 
 The `bz` executable is compiled using the Go programming language.  Sometimes antiviruses mistakenly flag Go binaries as viruses.  If you don't

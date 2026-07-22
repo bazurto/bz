@@ -47,7 +47,7 @@ func TestDependencyTree_resolveLocalEnvVars_Basic(t *testing.T) {
 	}
 
 	// Act
-	ctx, err := dt.resolveLocalEnvVars(nil)
+	ctx, err := dt.resolveLocalEnvVars(nil, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

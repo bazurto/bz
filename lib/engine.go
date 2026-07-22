@@ -4,6 +4,7 @@
 package lib
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -129,6 +130,10 @@ func (o *Engine) ContextFromFuzzyConfig(dir string, cc *model.FuzzyConfigContent
 // without reading the fuzzy config or locked config.  This method is to be used
 // for on the fly executions.  It does not update locked config
 func (o *Engine) ContextFromLockedConfig(dir string, lcc *model.LockedConfigContent) (*model.DependencyTree, error) {
+	// Resolution results are memoized (see DependencyTree.Resolve), so
+	// BZ_PROJECT_DIR must be set before the first resolution, not just in Execute.
+	os.Setenv("BZ_PROJECT_DIR", utils.FsAbs(dir))
+
 	//
 	Debug.Printf("read config: %v", lcc)
 	cdd := utils.NewCircularDependencyDetector()
@@ -150,6 +155,10 @@ func (o *Engine) ContextFromLockedConfig(dir string, lcc *model.LockedConfigCont
 // It will try to read fuzzy config first, if it does, then it updates the locked config
 // It then will try to read the locked config and resolves execution context
 func (o *Engine) ContextFromConfigDir(dir string) (*model.DependencyTree, error) {
+	// Resolution results are memoized (see DependencyTree.Resolve), so
+	// BZ_PROJECT_DIR must be set before the first resolution, not just in Execute.
+	os.Setenv("BZ_PROJECT_DIR", utils.FsAbs(dir))
+
 	var err error
 	// Fuzzy Config Info
 	var fuzzyConfigModTime time.Time
@@ -309,7 +318,7 @@ func (o *Engine) resolvedDependencyFromConfigContext(
 	rd.Triggers = triggers
 	rd.Sub = subDeps
 
-	if err := o.runInstallScript(rd); err != nil {
+	if err := o.runInstallScript(&rd); err != nil {
 		return nil, fmt.Errorf("install script error: %w", err)
 	}
 
@@ -473,7 +482,7 @@ func (o *Engine) downloadAndInstallDependencyIfNotExists(lockCoord *model.Locked
 	return extractToDir, nil
 }
 
-func (o *Engine) runInstallScript(depCtx model.DependencyTree) error {
+func (o *Engine) runInstallScript(depCtx *model.DependencyTree) error {
 	//
 	if depCtx.Triggers.InstallScript == "" {
 		return nil
@@ -482,7 +491,11 @@ func (o *Engine) runInstallScript(depCtx model.DependencyTree) error {
 	//
 	installScript := depCtx.Triggers.InstallScript
 
-	execCtx, err := depCtx.Resolve()
+	// Expand without running this dependency's own preRunScript: the install
+	// script has not run yet, and the pre-run script may depend on what it
+	// produces.  Sub dependencies are already installed, so their pre-run
+	// scripts do run and their variables are available here.
+	execCtx, err := depCtx.ResolveSkipSelfPreRun()
 	if err != nil {
 		return err
 	}
@@ -490,24 +503,32 @@ func (o *Engine) runInstallScript(depCtx model.DependencyTree) error {
 	if err != nil {
 		return err
 	}
-	doneFile := strings.Join([]string{installScriptFinal, "done"}, ".")
 
-	// Run lua script if doneFile does not exists
-	if _, err := os.Stat(doneFile); os.IsNotExist(err) {
-		Debug.Printf("Running install script: %s", installScriptFinal)
-		env := utils.OsEnvironment()  // os.environ
-		maps.Copy(env, execCtx.Env()) // dependency enrionment
-		err = luautils.RunLuaScript(installScriptFinal, env, nil)
-		if err != nil {
-			return err
-		}
-	} else {
-		Debug.Printf("Not running install script because done file exists: %s", doneFile)
+	// The done marker stores a hash of the script content so editing the
+	// script triggers a re-run.  Install scripts must be idempotent: a
+	// script that fails midway leaves no marker and runs again next time.
+	scriptContent, err := os.ReadFile(installScriptFinal)
+	if err != nil {
+		return fmt.Errorf("read install script %s: %w", installScriptFinal, err)
+	}
+	scriptHash := fmt.Sprintf("%x", sha256.Sum256(scriptContent))
+	doneFile := fmt.Sprintf("%s.done", installScriptFinal)
+
+	if prev, err := os.ReadFile(doneFile); err == nil && strings.TrimSpace(string(prev)) == scriptHash {
+		Debug.Printf("Not running install script because done file is current: %s", doneFile)
+		return nil
 	}
 
-	// write done file
+	Debug.Printf("Running install script: %s", installScriptFinal)
+	env := utils.OsEnvironment()  // os.environ
+	maps.Copy(env, execCtx.Env()) // dependency enrionment
+	if err := luautils.RunLuaScript(installScriptFinal, env, nil); err != nil {
+		return err
+	}
+
+	// write done file only after the script succeeded
 	Debug.Printf("writing install script done file: %s", doneFile)
-	if err := os.WriteFile(doneFile, []byte("done"), 0640); err != nil {
+	if err := os.WriteFile(doneFile, []byte(scriptHash), 0640); err != nil {
 		Warn.Printf("error writing install script done flag: %s", err)
 	}
 	return nil

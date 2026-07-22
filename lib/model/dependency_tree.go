@@ -27,6 +27,8 @@ type DependencyTree struct {
 	Alias    map[string]string // aliases
 	Triggers Triggers          // triggers
 	Sub      []*DependencyTree // Sub Dependencies
+
+	resolved *ExecContext // memoized Resolve result so each preRunScript runs at most once per process
 }
 
 func (ed *DependencyTree) BinDirOrDefault() string {
@@ -38,8 +40,32 @@ func (ed *DependencyTree) BinDirOrDefault() string {
 
 // Resolve returns a slice with bin dirs to be prepended to PATH os var
 // and a map with all environment variables to be added.  It resolves all
-// of these values recursively.  The callback function can be null
+// of these values recursively.  The result is memoized per node so that
+// preRunScript triggers execute at most once per process.
 func (ed *DependencyTree) Resolve() (*ExecContext, error) {
+	if ed.resolved != nil {
+		return ed.resolved, nil
+	}
+	ctx, err := ed.resolve(true)
+	if err != nil {
+		return nil, err
+	}
+	ed.resolved = ctx
+	return ctx, nil
+}
+
+// ResolveSkipSelfPreRun resolves like Resolve but without running this
+// node's own preRunScript.  It is used to expand the install script path and
+// environment: at that point the install script has not run yet, so the
+// node's pre-run script (which may inspect what the install produced) must
+// wait until execution time.  Sub dependency pre-run scripts still run
+// (memoized) because their install scripts have already completed.  The
+// result is not memoized.
+func (ed *DependencyTree) ResolveSkipSelfPreRun() (*ExecContext, error) {
+	return ed.resolve(false)
+}
+
+func (ed *DependencyTree) resolve(runSelfPreRun bool) (*ExecContext, error) {
 	// Sub
 	var subCtx []ExecContext
 	for _, sub := range ed.Sub {
@@ -51,7 +77,7 @@ func (ed *DependencyTree) Resolve() (*ExecContext, error) {
 	}
 
 	// Local
-	ctx, err := ed.resolveLocalEnvVars(subCtx)
+	ctx, err := ed.resolveLocalEnvVars(subCtx, runSelfPreRun)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +94,7 @@ func (ed *DependencyTree) Resolve() (*ExecContext, error) {
 
 // resolveLocalEnvVars returns map with implicit variables and exported ones
 // for only this extracted dependecy
-func (ed *DependencyTree) resolveLocalEnvVars(subCtx []ExecContext) (*ExecContext, error) {
+func (ed *DependencyTree) resolveLocalEnvVars(subCtx []ExecContext, runPreRun bool) (*ExecContext, error) {
 	ctx := &ExecContext{}
 	env := make(map[string]string)
 	env["DIR"] = ed.Dir // DIR
@@ -97,7 +123,7 @@ func (ed *DependencyTree) resolveLocalEnvVars(subCtx []ExecContext) (*ExecContex
 	ctx.Sub = subCtx
 
 	// Override variables with Lua
-	if ed.Triggers.PreRunScript != "" {
+	if runPreRun && ed.Triggers.PreRunScript != "" {
 		preRunScriptFinal, err := ctx.Expand(ed.Triggers.PreRunScript) // parses variables $DIR/script.lua
 		if err != nil {
 			return nil, err
