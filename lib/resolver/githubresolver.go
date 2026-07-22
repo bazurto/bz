@@ -193,6 +193,9 @@ func (o *GithubResolver) getAssetFromRelease(c GithubLockedCoord, release *githu
 				break
 			}
 		}
+		if asset != nil {
+			break
+		}
 	}
 	if asset == nil {
 		return nil, fmt.Errorf(
@@ -233,7 +236,7 @@ func (o *GithubResolver) ghFindReleaseByPattern(client *github.Client, owner, re
 			}
 			Debug.Printf(" || '%s'.matches(%s)", patternStr, release.GetName())
 			if pattern.Matches(model.NewVersion(release.GetName())) &&
-				(latest == nil || versionCompare(release.GetName(), latest.GetName()) > 1) {
+				(latest == nil || versionCompare(release.GetName(), latest.GetName()) > 0) {
 				Debug.Printf(" || found %s", release.GetName())
 				latest = release
 			}

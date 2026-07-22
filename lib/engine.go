@@ -466,15 +466,9 @@ func (o *Engine) downloadAndInstallDependencyIfNotExists(lockCoord *model.Locked
 			break
 		}
 	}
-
-	// lc, err := o.lockedConfigContentFromDir(extractToDir)
-	// if err != nil {
-	// 	return "", fmt.Errorf("error loading dependency `%s`: %w", lockCoord.String(), err)
-	// }
-
-	// if err := o.runInstallScript(extractToDir, lc); err != nil {
-	// 	return "", fmt.Errorf("install script: %w", err)
-	// }
+	if !resolved {
+		return "", fmt.Errorf("no resolver could download dependency `%s`", lockCoord.String())
+	}
 
 	return extractToDir, nil
 }

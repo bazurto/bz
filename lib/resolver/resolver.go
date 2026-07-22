@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/Masterminds/semver"
 	"github.com/bazurto/bz/lib/model"
@@ -79,15 +80,12 @@ func versionCompare(a, b string) int {
 }
 
 func ExtractDependency(file string, extractToDir string) error {
-	var err error
 	ext := filepath.Ext(file)
 	if ext == ".zip" {
-		err = utils.Unzip(file, extractToDir)
-	} else if ext == ".tgz" {
-		err = utils.Untgz(file, extractToDir)
+		return utils.Unzip(file, extractToDir)
 	}
-	if err != nil {
-		return err
+	if ext == ".tgz" || strings.HasSuffix(file, ".tar.gz") {
+		return utils.Untgz(file, extractToDir)
 	}
-	return nil
+	return fmt.Errorf("unsupported archive extension for file %s", file)
 }

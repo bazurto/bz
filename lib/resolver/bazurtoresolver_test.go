@@ -55,7 +55,22 @@ func TestBazurtoResolver(t *testing.T) {
 		}, nil
 	}
 
-	mockGrpcServer.DownloadCoordFunc = func(req *pb.DownloadCoordRequest, srv grpc.ServerStreamingServer[pb.BinaryChunk]) {
+	mockGrpcServer.DownloadCoordFunc = func(req *pb.DownloadCoordRequest, srv grpc.ServerStreamingServer[pb.BinaryChunk]) error {
+		data, err := os.ReadFile(path.Join(tmpDir, "owner-repo-linux-amd64.zip"))
+		if err != nil {
+			return err
+		}
+		chunkSize := 1024
+		for sent := 0; sent < len(data); sent += chunkSize {
+			end := sent + chunkSize
+			if end > len(data) {
+				end = len(data)
+			}
+			if err := srv.Send(&pb.BinaryChunk{Data: data[sent:end]}); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 
 	resolver := NewBazurtoResolver(appCtx, WithHost("localhost"), WithPort(randomPort))
@@ -85,7 +100,7 @@ type mockBazurtoGrpcServer struct {
 	pb.UnimplementedBazurtoServer
 	server            *grpc.Server
 	ResolveCoordFunc  func(context.Context, *pb.ResolveCoordRequest) (*pb.ResolveCoordResponse, error)
-	DownloadCoordFunc func(req *pb.DownloadCoordRequest, srv grpc.ServerStreamingServer[pb.BinaryChunk])
+	DownloadCoordFunc func(req *pb.DownloadCoordRequest, srv grpc.ServerStreamingServer[pb.BinaryChunk]) error
 }
 
 func (o *mockBazurtoGrpcServer) ResolveCoord(ctx context.Context, rcr *pb.ResolveCoordRequest) (*pb.ResolveCoordResponse, error) {
@@ -93,29 +108,7 @@ func (o *mockBazurtoGrpcServer) ResolveCoord(ctx context.Context, rcr *pb.Resolv
 }
 
 func (o *mockBazurtoGrpcServer) DownloadCoord(req *pb.DownloadCoordRequest, srv grpc.ServerStreamingServer[pb.BinaryChunk]) error {
-	o.DownloadCoordFunc(req, srv)
-	req.Coord = "http://bazurto/owner/repo#1.2.3"
-	chunkSize := 1024
-	totalSize := 10 * 1024
-	sent := 0
-	for sent < totalSize {
-		toSend := chunkSize
-		if sent+toSend > totalSize {
-			toSend = totalSize - sent
-		}
-		chunk := &pb.BinaryChunk{
-			Data: make([]byte, toSend),
-		}
-		for i := range chunk.Data {
-			chunk.Data[i] = byte((sent + i) % 256)
-		}
-		if err := srv.Send(chunk); err != nil {
-			return err
-		}
-		sent += toSend
-		time.Sleep(10 * time.Millisecond) // Simulate network delay
-	}
-	return nil
+	return o.DownloadCoordFunc(req, srv)
 }
 
 func (o *mockBazurtoGrpcServer) Stop() {
