@@ -18,9 +18,10 @@ var (
 	Info  *log.Logger
 )
 
-func init() {
+func init() { ReinitLoggers() }
 
-	// DEBUG
+// ReinitLoggers allows toggling DEBUG at runtime (e.g. after parsing flags)
+func ReinitLoggers() {
 	debugEnv := os.Getenv("DEBUG")
 	if debugEnv != "" && debugEnv != "0" && !strings.EqualFold(debugEnv, "false") {
 		Debug = log.New(os.Stderr, "[D]", log.LstdFlags)

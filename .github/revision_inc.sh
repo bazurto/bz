@@ -20,7 +20,7 @@ main() {
 #   2
 #
 bump_revision() {
-    major_mino=$1
+    major_minor=$1
     key="rev-$major_minor"
 
     rev=$(db_get $key)

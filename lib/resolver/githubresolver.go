@@ -35,13 +35,19 @@ func (o *GithubResolver) String() string {
 	return "GithubResolver{}"
 }
 
-func (o *GithubResolver) ResolveCoord(c *model.FuzzyCoord) (*model.LockedCoord, error) {
-	Debug.Printf("Start GithubResolver.ResolveCoord(%s)", c)
+func (o *GithubResolver) ResolveCoord(fc model.FuzzyCoord) (*model.LockedCoord, error) {
+	var err error
+	Debug.Printf("Start GithubResolver.ResolveCoord(%s)", fc.String())
 
 	// if not github, then bail out
-	if c.Server != "github.com" {
-		Debug.Printf("Start GithubResolver.ResolveCoord(%s): not a github dependency...", c)
+	if fc.URL.Hostname() != "github.com" {
+		Debug.Printf("Start GithubResolver.ResolveCoord(%s): not a github dependency...", fc.String())
 		return nil, nil
+	}
+
+	c, err := fuzzyCoordToGithubFuzzyCoord(fc)
+	if err != nil {
+		return nil, err
 	}
 
 	//
@@ -54,7 +60,6 @@ func (o *GithubResolver) ResolveCoord(c *model.FuzzyCoord) (*model.LockedCoord, 
 	// resolve for precise tag v1.2.3.4 -> v1.2.3.4
 	// resolve for v1.2 -> v.1.2.3.4
 	var release *github.RepositoryRelease
-	var err error
 	if c.Version == "" || c.Version == "0" {
 		Debug.Printf(" | call client.Repositories.GetLatestRelease(%s, %s)", c.Owner, c.Repo)
 		release, _, err = client.Repositories.GetLatestRelease(ctx, c.Owner, c.Repo)
@@ -63,6 +68,9 @@ func (o *GithubResolver) ResolveCoord(c *model.FuzzyCoord) (*model.LockedCoord, 
 		var r *github.Response
 		Debug.Printf(" | call client.Repositories.GetReleaseByTag (%s, %s, %s)", c.Owner, c.Repo, fmt.Sprintf("v%s", c.Version))
 		release, r, err = client.Repositories.GetReleaseByTag(ctx, c.Owner, c.Repo, fmt.Sprintf("v%s", c.Version))
+		if r == nil {
+			return nil, fmt.Errorf("GithubResolver client error: client returned a nil response")
+		}
 		if err != nil && r.StatusCode == http.StatusNotFound {
 			release, err = o.ghFindReleaseByPattern(client, c.Owner, c.Repo, fmt.Sprintf("v%s", c.Version))
 		}
@@ -73,24 +81,22 @@ func (o *GithubResolver) ResolveCoord(c *model.FuzzyCoord) (*model.LockedCoord, 
 
 	//
 	version := model.NewVersion(release.GetName())
-	if err != nil {
-		return nil, fmt.Errorf("GithubResolver.ResolveCoord() NewVersion: %w", err)
-	}
 
-	return &model.LockedCoord{
-		Server:  c.Server,
-		Owner:   c.Owner,
-		Repo:    c.Repo,
-		Version: version,
-	}, nil
+	lc, err := model.NewLockedCoord("https", c.Server, fmt.Sprintf("%s/%s", c.Owner, c.Repo), version, nil)
+	return &lc, err
 }
 
-func (o *GithubResolver) DownloadResolvedCoord(lc *model.LockedCoord) (string, error, bool) {
-	Debug.Printf("Start DownloadResolvedCoord(%v)", lc)
+func (o *GithubResolver) DownloadResolvedCoord(l model.LockedCoord) (string, error, bool) {
+	Debug.Printf("Start DownloadResolvedCoord(%v)", l)
 
 	// if not github, then bail out
-	if lc.Server != "github.com" {
+	if l.URL.Hostname() != "github.com" {
 		return "", nil, false
+	}
+
+	lc, err := lockedCoordToGithubLockedCoord(l)
+	if err != nil {
+		return "", err, false
 	}
 
 	dir := filepath.Join(
@@ -147,7 +153,10 @@ func (o *GithubResolver) DownloadResolvedCoord(lc *model.LockedCoord) (string, e
 			return "", err
 		}
 		defer readCloser.Close()
-		Info.Printf("Downloading file %s ...", file)
+		Info.Printf("GET %s to %s",
+			fmt.Sprintf("%s/repos/%s/%s/releases/assets/%d", client.BaseURL.String(), lc.Owner, lc.Repo, asset.GetID()),
+			file,
+		)
 		if _, err := io.Copy(w, readCloser); err != nil {
 			return "", err
 		}
@@ -161,10 +170,10 @@ func (o *GithubResolver) DownloadResolvedCoord(lc *model.LockedCoord) (string, e
 	if err := os.Rename(downloadFileTmp, file); err != nil {
 		return "", err, false
 	} else {
-		Info.Printf("Downloading file %s DONE", file)
+		Info.Printf("...%s DONE", file)
 	}
 
-	err = o.extractDependency(lc, file, extractToDir)
+	err = ExtractDependency(file, extractToDir)
 	if err != nil {
 		return "", fmt.Errorf("unable to extract dependency: %w", err), false
 	}
@@ -172,9 +181,9 @@ func (o *GithubResolver) DownloadResolvedCoord(lc *model.LockedCoord) (string, e
 	return extractToDir, nil, true
 }
 
-func (o *GithubResolver) getAssetFromRelease(c *model.LockedCoord, release *github.RepositoryRelease) (*github.ReleaseAsset, error) {
+func (o *GithubResolver) getAssetFromRelease(c GithubLockedCoord, release *github.RepositoryRelease) (*github.ReleaseAsset, error) {
 	var asset *github.ReleaseAsset
-	expectedNames := possibleAssetNames(c)
+	expectedNames := possibleAssetNames(c.Repo, c.Version)
 	for _, expected := range expectedNames {
 		for _, a := range release.Assets {
 			//Debug.Printf(" | is %s == %s", expected.NameWithExt(), a.GetName())
@@ -183,6 +192,9 @@ func (o *GithubResolver) getAssetFromRelease(c *model.LockedCoord, release *gith
 				asset = a
 				break
 			}
+		}
+		if asset != nil {
+			break
 		}
 	}
 	if asset == nil {
@@ -224,7 +236,7 @@ func (o *GithubResolver) ghFindReleaseByPattern(client *github.Client, owner, re
 			}
 			Debug.Printf(" || '%s'.matches(%s)", patternStr, release.GetName())
 			if pattern.Matches(model.NewVersion(release.GetName())) &&
-				(latest == nil || versionCompare(release.GetName(), latest.GetName()) > 1) {
+				(latest == nil || versionCompare(release.GetName(), latest.GetName()) > 0) {
 				Debug.Printf(" || found %s", release.GetName())
 				latest = release
 			}
@@ -245,7 +257,7 @@ func (o *GithubResolver) newGithubClient(server string) *github.Client {
 		return client
 	}
 
-	// github client
+	// GitHub client
 	ctx := context.Background()
 	githubAccessToken := o.appCtx.UserConfig.GetServerToken(server)
 	var tc *http.Client = nil
@@ -260,16 +272,56 @@ func (o *GithubResolver) newGithubClient(server string) *github.Client {
 	return client
 }
 
-func (o *GithubResolver) extractDependency(lc *model.LockedCoord, file string, extractToDir string) error {
-	var err error
-	ext := filepath.Ext(file)
-	if ext == ".zip" {
-		err = utils.Unzip(file, extractToDir)
-	} else if ext == ".tgz" {
-		err = utils.Untgz(file, extractToDir)
+type GithubFuzzyCoord struct {
+	Server  string
+	Owner   string
+	Repo    string
+	Version string
+}
+
+func fuzzyCoordToGithubFuzzyCoord(
+	fc model.FuzzyCoord,
+) (GithubFuzzyCoord, error) {
+	var ok bool
+	var gfc GithubFuzzyCoord
+	ownerRepoPath := strings.Trim(fc.URL.Path, "/")
+	gfc.Server = fc.URL.Hostname()
+	gfc.Version = fc.URL.Fragment
+	gfc.Owner, gfc.Repo, ok = strings.Cut(ownerRepoPath, "/")
+	if !ok {
+		return gfc, fmt.Errorf("incomplete URL for github.  Github requires `owner/repo` path, but `%s` given", ownerRepoPath)
 	}
-	if err != nil {
-		return err
+	return gfc, nil
+}
+
+type GithubLockedCoord struct {
+	Server  string
+	Owner   string
+	Repo    string
+	Version model.Version
+}
+
+func (o *GithubLockedCoord) CanonicalNameNoVersion() string {
+	return fmt.Sprintf("%s/%s/%s", o.Server, o.Owner, o.Repo)
+}
+
+func (o *GithubLockedCoord) String() string {
+	return fmt.Sprintf("%s/%s/%s@%s", o.Server, o.Owner, o.Repo, o.Version.Canonical())
+}
+
+func lockedCoordToGithubLockedCoord(
+	lc model.LockedCoord,
+) (GithubLockedCoord, error) {
+	var ok bool
+	var glc GithubLockedCoord
+	ownerRepoPath := strings.Trim(lc.URL.Path, "/")
+
+	glc.Version = model.NewVersion(lc.URL.Fragment)
+	glc.Server = lc.URL.Hostname()
+	glc.Owner, glc.Repo, ok = strings.Cut(ownerRepoPath, "/")
+	if !ok {
+		return glc, fmt.Errorf("incomplete URL for github.  Github requires `owner/repo` path, but `%s` given", ownerRepoPath)
 	}
-	return nil
+
+	return glc, nil
 }

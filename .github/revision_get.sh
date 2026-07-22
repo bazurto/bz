@@ -15,7 +15,7 @@ main() {
 # revision_get 0.0
 #   0
 revision_get() {
-    major_mino=$1
+    major_minor=$1
     key="rev-$major_minor"
 
     rev=$(db_get $key)

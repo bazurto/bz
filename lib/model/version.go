@@ -13,6 +13,8 @@ import (
 	"github.com/amzn/ion-go/ion"
 )
 
+var BlankVersion = NewVersion("0.0.0")
+
 type Version struct {
 	nums     []int
 	pre      string

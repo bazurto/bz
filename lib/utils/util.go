@@ -102,6 +102,10 @@ func Unzip(zipFileName, dstDirName string) error {
 			if err != nil {
 				return err
 			}
+
+			if s, _ := os.Stat(path); s.Mode() != zipFile.Mode() {
+				os.Chmod(path, zipFile.Mode())
+			}
 		}
 		return nil
 	}
@@ -163,6 +167,65 @@ func Zip(srcDir string, writer io.Writer, include []string) error {
 			return nil
 		}
 		fmt.Printf("- %s\n", filename)
+
+		// Get FileInfo about our file providing file size, mode, etc.
+		info, err := file.Stat()
+		if err != nil {
+			return fmt.Errorf("file.Stat(%s): %w", fullFilename, err)
+		}
+
+		// Create a tar Header from the FileInfo data
+		header, err := zip.FileInfoHeader(info)
+		if err != nil {
+			return fmt.Errorf("zip.FileInfoHeader(%s): %w", fullFilename, err)
+		}
+		header.Name = filename
+
+		// Write file header to the tar archive
+		w, err := tw.CreateHeader(header)
+		if err != nil {
+			return fmt.Errorf("zip.CreateHeader(%s): %w", filename, err)
+		}
+
+		// Copy contents if it is regular file
+		if info.Mode().IsRegular() {
+			_, err = io.Copy(w, file)
+			if err != nil {
+				return fmt.Errorf("io.Copy(%s, %s): %w", filename, fullFilename, err)
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("Zip(): %w", err)
+	}
+	return nil
+}
+
+// ZipAll zips up files
+type ZipAllOpts struct {
+	Echo bool // echo name of all files been zipped up
+}
+
+func ZipAll(srcDir string, writer io.Writer, opts ZipAllOpts) error {
+	var err error
+	srcDir, err = filepath.Abs(srcDir) // clean path
+	if err != nil {
+		return fmt.Errorf("Zip() filepath.Abs: %w", err)
+	}
+
+	tw := zip.NewWriter(writer)
+	defer tw.Close()
+
+	err = RecurseDir(srcDir, func(fullFilename string, file *os.File) error {
+		filename := strings.Replace(fullFilename, srcDir, "", 1) // /path/to/srcDir/dir/file => /dir/file
+		filename = strings.TrimLeft(filename, "/")               // dir/file
+		filename = filepath.ToSlash(filename)                    // replace windows filenames to *nix filenames: dir\file => dir/file
+
+		if opts.Echo {
+			fmt.Printf("- %s\n", filename)
+		}
 
 		// Get FileInfo about our file providing file size, mode, etc.
 		info, err := file.Stat()
@@ -341,11 +404,7 @@ func Untgz(fileName, dir string) error {
 }
 
 func uncompressActualPath(dir, path string) (string, error) {
-	var err error
 	realName := filepath.Clean(filepath.Join(dir, filepath.FromSlash(path)))
-	if err != nil {
-		return "", fmt.Errorf("Uncompress: filepath.Abs() failed: %w", err)
-	}
 	if !strings.HasPrefix(realName, dir) {
 		return "", fmt.Errorf("Uncompress: path(%s) not contained within path(%s)", realName, dir)
 	}
@@ -399,6 +458,10 @@ func HclLoad(f string, cfg any) error {
 	file, diags = hclsyntax.ParseConfig(b, f, hcl.Pos{Line: 1, Column: 1})
 	if diags.HasErrors() {
 		return fmt.Errorf("Unable to parse HCL file %s: %w", f, diags)
+	}
+
+	if file == nil || file.Body == nil {
+		return fmt.Errorf("Unable to parse HCL file %s: returned body is nil", f)
 	}
 
 	diags = gohcl.DecodeBody(file.Body, ctx, cfg)
@@ -504,26 +567,75 @@ func ToPropKey(k string) string {
 	return k
 }
 
-
-// jsonDecode decodes json and returns pointer of R type passed
-// e.g.1:
+// JsonDecode decodes json and returns pointer of R type passed
+// e.g:
 //
-//	myTypePtr, err := jsonDecode(`{"fld1": "Val1"}`, MyType{})
-//
-// e.g.2:
-//
-//	mapPtr, err := jsonDecode(`{"fld1": "Val1"}`, make(map[string]string))
-//	m := *mapPtr
+//	m := make(map[string]string)
+//	err := jsonDecode(`{"fld1": "Val1"}`, &m)
 //	fmt.Println(m["fld1"])
 func JsonDecode[T string | []byte](b T, v any) error {
 	switch tmp := any(b).(type) {
 	case string:
-		//try(json.Unmarshal([]byte(tmp), &v))
-		err := json.Unmarshal([]byte(tmp), &v)
-		return err
+		return json.Unmarshal([]byte(tmp), v)
 	case []byte:
-		err := json.Unmarshal(tmp, &v)
-		return err
+		return json.Unmarshal(tmp, v)
 	}
 	return fmt.Errorf("Unknown type parameter")
+}
+
+// JsonConvert converts one object into another using json
+//
+// e.g:
+//
+//	 type MyStruct struct {
+//			Fld1 string
+//			Fld2 string
+//		}
+//
+//		m := make(map[string]string)
+//	 m["Fld1"] = "Val1"
+//	 m["Fld2"] = "Val2"
+//
+//	 m2 := MyStruct{}
+//
+//		err := JsonConvert(&m, &m2)
+//	 fmt.Println(m2.Fld1) // Val1
+//	 fmt.Println(m2.Fld2) // Val2
+func JsonConvert(src any, target any) error {
+	b, err := json.Marshal(src)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, target)
+}
+
+// AnyToString takes any value and converts it to a string.
+//
+// If the value is already a string or a []byte, it is returned as is.
+// Otherwise, the value is converted to a string using fmt.Sprintf("%v", v).
+func AnyToString(v any) string {
+	switch v.(type) {
+	case string:
+		return v.(string)
+	case []byte:
+		return string(v.([]byte))
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
+// OsEnvironment return the os.Environ() as a map of strings.
+//
+// the returned map can be safely modified without affecting
+// the original environment variables
+func OsEnvironment() map[string]string {
+	m := make(map[string]string)
+	for _, envLine := range os.Environ() {
+		if k, v, ok := strings.Cut(envLine, "="); ok {
+			m[k] = v // KEY=VAR
+		} else {
+			m[k] = "" // KEY
+		}
+	}
+	return m
 }

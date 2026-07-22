@@ -1,20 +1,35 @@
 {
   "deps": [
     {
-      "server": "github.com",
-      "owner": "bazurto",
-      "repo": "groovy",
-      "version": "4.0.11"
+      "URL": {
+        "Scheme": "https",
+        "Opaque": "",
+        "User": null,
+        "Host": "github.com",
+        "Path": "/bazurto/gradle",
+        "RawPath": "",
+        "OmitHost": false,
+        "ForceQuery": false,
+        "RawQuery": "",
+        "Fragment": "8.10",
+        "RawFragment": ""
+      }
     },
     {
-      "server": "github.com",
-      "owner": "bazurto",
-      "repo": "python",
-      "version": "3.11.1"
+      "URL": {
+        "Scheme": "https",
+        "Opaque": "",
+        "User": null,
+        "Host": "github.com",
+        "Path": "/bazurto/openjdk",
+        "RawPath": "",
+        "OmitHost": false,
+        "ForceQuery": false,
+        "RawQuery": "",
+        "Fragment": "21.0.2.13",
+        "RawFragment": ""
+      }
     }
   ],
-  "triggers": {
-    "installScript": "$DIR/install.php",
-    "preRunScript": "$DIR/prerun.php"
-  }
+  "triggers": {}
 }

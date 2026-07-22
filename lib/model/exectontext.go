@@ -23,7 +23,12 @@ func (o *ExecContext) Env() map[string]string {
 	m := make(map[string]string)
 	for _, s := range o.Sub {
 		for k, v := range s.Env() {
-			m[k] = v
+			if k == "PATH" {
+				newPaths := strings.Split(v, string([]rune{os.PathListSeparator})) // v == /path1:/path2
+				o.prependPath(m, newPaths...)
+			} else {
+				m[k] = v
+			}
 		}
 	}
 	if o.envMap != nil {
@@ -33,16 +38,34 @@ func (o *ExecContext) Env() map[string]string {
 	}
 
 	//
-	o.prependPath(m)
+	o.prependPath(m, o.path...)
 
 	return m
 }
 
-func (o *ExecContext) prependPath(m map[string]string) {
-	if o.path == nil {
+func (o *ExecContext) prependPath(m map[string]string, newPaths0 ...string) {
+	o.pathAsSlice(m, newPaths0, func(existingPaths []string, newPaths1 []string) []string {
+		var p []string
+		p = append(p, newPaths1...) // add new before existing paths
+		p = append(p, existingPaths...)
+		return p
+	})
+}
+
+// func (o *ExecContext) appendPath(m map[string]string, newPaths0 ...string) {
+// 	o.pathAsSlice(m, newPaths0, func(existingPaths []string, newPaths0 []string) []string {
+// 		var p []string
+// 		p = append(p, existingPaths...) // add existing before new paths
+// 		p = append(p, newPaths0...)
+// 		return p
+// 	})
+// }
+
+func (o *ExecContext) pathAsSlice(m map[string]string, pathsToAdd []string, f func(existing []string, new []string) []string) {
+	if pathsToAdd == nil {
 		return
 	}
-	if len(o.path) < 1 {
+	if len(pathsToAdd) < 1 {
 		return
 	}
 
@@ -52,10 +75,23 @@ func (o *ExecContext) prependPath(m map[string]string) {
 		pathParts = strings.Split(pathStr, string([]rune{os.PathListSeparator}))
 	}
 
-	// path
-	var p []string
-	p = append(p, o.path...)
-	p = append(p, pathParts...)
+	// don't add duplicates to PATH
+	existing := make(map[string]bool)
+	for _, p := range pathParts {
+		existing[p] = true
+	}
+	var newParts []string
+	for _, p := range pathsToAdd {
+		if _, ok := existing[p]; !ok {
+			newParts = append(newParts, p)
+			existing[p] = true
+		}
+	}
+	if len(newParts) < 1 {
+		return
+	}
+
+	p := f(pathParts, newParts)
 	if len(p) > 0 {
 		m["PATH"] = strings.Join(p, string([]rune{os.PathListSeparator}))
 	}
@@ -90,4 +126,26 @@ func (o *ExecContext) ResolveAlias(args []string) []string {
 	}
 
 	return result
+}
+
+func (o *ExecContext) StrToArgs(str string) ([]string, error) {
+	e := o.Env()
+	args, err := shell.Fields(str, func(k string) string {
+		if v, ok := e[k]; ok {
+			return v
+		}
+		return fmt.Sprintf("$%s", k)
+	})
+	return args, err
+}
+
+func (o *ExecContext) Expand(str string) (string, error) {
+	e := o.Env()
+	args, err := shell.Expand(str, func(k string) string {
+		if v, ok := e[k]; ok {
+			return v
+		}
+		return fmt.Sprintf("$%s", k)
+	})
+	return args, err
 }
